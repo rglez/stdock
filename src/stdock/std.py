@@ -90,7 +90,7 @@ class Spectrum:
         absolute = pd.DataFrame(integrals).astype(int)
         absolute['labels'] = [self.regions[x]['label'] for x in self.regions]
         absolute.set_index(absolute.labels, inplace=True)
-        del(absolute['labels'])
+        del (absolute['labels'])
         return absolute
 
     def save_integrations(self, integrations_list, labels):
@@ -269,10 +269,11 @@ class STDRunner:
 
 
 # #### Debugging STDRunner
-import config as cfg
-config_path = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/config.cfg'
-params = cfg.allowed_parameters
-valid_templates = cfg.allowed_templates
-args = cfg.STDConfig(config_path, params, valid_templates).config_args
-self = STDRunner(args)
+# import config as cfg
+#
+# config_path = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/config.cfg'
+# params = cfg.allowed_parameters
+# valid_templates = cfg.allowed_templates
+# args = cfg.STDConfig(config_path, params, valid_templates).config_args
+# self = STDRunner(args)
 # %%
