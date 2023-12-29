@@ -55,3 +55,4 @@ MANIFEST
 
 # My omissions
 tests/example/STDCK2a-300v2/*
+scripts/*

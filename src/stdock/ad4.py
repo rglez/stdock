@@ -1,14 +1,19 @@
-# Created by roy.gonzalez-aleman at 23/11/2023
+# Created by roy.gonzalez-aleman at 27/12/2023
 import os
 import shutil
 import subprocess as sp
-from multiprocessing import Pool
-from os.path import join, abspath, basename
+import sys
+from os.path import join, basename
 
 import numpy as np
 import prody as prd
 
 import commons as cmn
+from docking import Program
+
+syn = {2500000: 'low',
+       25000000: 'medium',
+       250000000: 'high'}
 
 
 def throw_error(cmd, label):
@@ -18,21 +23,24 @@ def throw_error(cmd, label):
         print(f'\n{label} has been correctly prepared')
 
 
-class AutoDocker4:
-    def __init__(self, lig_path, rec_path, ad4_path, adt_path, babel_path,
-                 out_path, n_runs):
+class AutoDock4(Program):
+    def __init__(self, ad4_path, adt_path, babel_path, exe_path, rec_path,
+                 lig_path, n_poses, rmsd_tol, scoring_functions,
+                 exhaustiveness_list, odir):
+        super().__init__(exe_path, rec_path, lig_path, n_poses, rmsd_tol,
+                         scoring_functions, exhaustiveness_list, odir)
 
         # Parsed class arguments
-        self.ga_run = 250
-        self.ga_num_evals = 250000
-        self.n_runs = n_runs
+        self.n_poses = n_poses
+        self.exhaustiveness_list = exhaustiveness_list
+
         self.rec_path = cmn.check_path(rec_path)
         self.lig_path = cmn.check_path(lig_path)
         self.ad4_path = cmn.check_path(ad4_path)
         self.adt_path = cmn.check_path(adt_path)
-        self.out_path = abspath(cmn.check_path(out_path, check_exist=False))
+        self.out_path = join(odir, f'ad4_{syn[self.exhaustiveness_list]}')
 
-        # Inferred from class arguments
+        # # Inferred from class arguments
         self.out_files = join(self.out_path, 'docking_files')
         self.out_poses = join(self.out_path, 'docking_poses')
         self.lig = prd.parsePDB(self.lig_path)
@@ -41,14 +49,6 @@ class AutoDocker4:
         self.autodock4 = join(self.ad4_path, 'autodock4')
         self.autogrid4 = join(self.ad4_path, 'autogrid4')
         self.babel_path = cmn.check_path(babel_path)
-
-        # Common workflow
-        self.build_hierarchy()
-        self.prepare_ligand()
-        self.prepare_receptor()
-        self.prepare_gpf()
-        self.compute_maps()
-        self.prepare_dpf()
 
     def get_python_exe(self):
         p = os.sep.join(self.adt_path.split(os.sep)[:-4] + ['bin', 'pythonsh'])
@@ -116,22 +116,22 @@ class AutoDocker4:
         rec_qt = basename(self.rec_path) + 'qt'
         dpf_script = next(cmn.recursive_finder('pre*_dpf*4.py', self.adt_path))
         cmd = sp.run([self.pythonsh, dpf_script, '-l', lig_qt, '-r', rec_qt,
-                      f'-p ga_num_evals={self.ga_num_evals}',
-                      f'-p ga_run={self.ga_run}'],
+                      f'-p ga_num_evals={self.exhaustiveness_list}',
+                      f'-p ga_run={self.n_poses}'],
                      stdout=sp.DEVNULL, stderr=sp.STDOUT)
         throw_error(cmd, '.dpf')
 
-    def dock(self, i):
+    def dock(self):
         os.chdir(self.out_files)
         dpf = next(cmn.recursive_finder('*dpf', '.'))
-        cmd = sp.run([self.autodock4, '-p', dpf, '-l', f'run_{i}.dlg'],
+        cmd = sp.run([self.autodock4, '-p', dpf, '-l', f'run.dlg'],
                      stdout=sp.DEVNULL, stderr=sp.STDOUT)
         throw_error(cmd, '.dlg')
 
-    def output_poses(self, run_id):
+    def output_poses(self):
         os.chdir(self.out_files)
-        dlg = next(cmn.recursive_finder(f'*_{run_id}.dlg', '.'))
-        prefix = join(self.out_poses, f'poses_run_{run_id}')
+        dlg = next(cmn.recursive_finder(f'run.dlg', '.'))
+        prefix = join(self.out_poses, f'poses_run')
         conf_script = next(
             cmn.recursive_finder('wr*_conf*dlg.py', self.adt_path))
         cmd = sp.run([self.pythonsh, conf_script, '-d', dlg, '-o', prefix],
@@ -143,8 +143,7 @@ class AutoDocker4:
     def output_scores(self):
         os.chdir(self.out_files)
         raw_dlg = list(cmn.recursive_finder('*dlg', '.'))
-        dlg_files = sorted(raw_dlg, key=lambda x: int(
-            basename(x).split('_')[1].split('.')[0]))
+        dlg_files = sorted(raw_dlg)
 
         flag = 'DOCKED: USER    Estimated Free Energy of Binding'
         scores = []
@@ -162,10 +161,10 @@ class AutoDocker4:
             for score in scores:
                 s.write(f'{score}\n')
 
-    def convert_poses(self, run_id):
+    def convert_poses(self):
         os.chdir(self.out_poses)
-        pdbqts = cmn.recursive_finder(f'*run_{run_id}*pdbqt', '.')
-        print(f'\nConverting the run-{run_id} pdbqt files to pdb')
+        pdbqts = cmn.recursive_finder(f'*run*pdbqt', '.')
+        print(f'\nConverting the pdbqt files to pdb')
         for pdbqt in pdbqts:
             cmd = sp.run(
                 [self.babel_path, '-ipdbqt', pdbqt, '-opdb', '-O', pdbqt[:-2]],
@@ -175,13 +174,12 @@ class AutoDocker4:
                     f'\nProblem converting {pdbqt} from pdbqt to pdb')
             os.remove(pdbqt)
 
-    def create_pdb_traj(self):
+    def create_pdbqt(self):
         os.chdir(self.out_poses)
         pdb_files = list(cmn.recursive_finder('*.pdb', self.out_poses))
         sorted_pdbs = sorted(pdb_files,
-                             key=lambda x:
-                             (int(basename(x).split('_')[2]),
-                              int(basename(x).split('_')[3].split('.')[0])))
+                             key=lambda x: int(
+                                 basename(x).split('_')[2].split('.')[0]))
 
         ensemble = prd.Ensemble()
         for i, pdb_ in enumerate(sorted_pdbs):
@@ -191,80 +189,34 @@ class AutoDocker4:
         ensemble.setAtoms(ag_)
         prd.writePDB(join(self.out_poses, 'poses_coords.pdb'), ensemble)
 
-    def reorder_traj(self):
-        raw_traj_path = join(self.out_poses, 'poses_coords.pdb')
-        scores_path = join(self.out_poses, 'poses_scores.txt')
-        raw_traj = prd.parsePDB(raw_traj_path)
-        raw_scores = pd.read_table(scores_path, header=None)[0].to_list()
-        scores = np.asarray(raw_scores)
-        order = scores.argsort()
-        ordered_ensemble = prd.Ensemble()
-        [ordered_ensemble.addCoordset(x) for x in
-         raw_traj.getCoordsets()[order]]
-        ordered_ensemble.setAtoms(raw_traj)
-        prd.writePDB(join(self.out_poses, 'poses_coords_sorted.pdb'),
-                     ordered_ensemble)
+    def runner(self):
+        self.build_hierarchy()
+        self.prepare_ligand()
+        self.prepare_receptor()
+        self.prepare_gpf()
+        self.compute_maps()
+        self.prepare_dpf()
 
-    def run(self):
-        # Run parallel docking searches
-        run_ids = list(range(1, self.n_runs + 1))
-        pool = Pool()
-        pool.map(self.dock, run_ids)
-
-        # Convert poses into a pdb trajectory
-        for run_id in run_ids:
-            self.output_poses(run_id)
-            self.convert_poses(run_id)
-        self.create_pdb_traj()
-
-        # Output scores
+        self.dock()
+        self.output_poses()
+        self.convert_poses()
+        self.create_pdbqt()
         self.output_scores()
 
 
 # =============================================================================
 #
 # =============================================================================
-root = '/home/roy.gonzalez-aleman/RoyHub/stdock/data/autodock/input_files'
 ad4 = '/home/roy.gonzalez-aleman/SoftWare/autodock/x86_64Linux2/'
 adt = '/home/roy.gonzalez-aleman/SoftWare/autodock/mgltools_x86_64Linux2_1.5.7/MGLToolsPckgs/AutoDockTools/Utilities24/'
-
-lig = '/home/roy.gonzalez-aleman/Posgrado_Bioinf/lig_Strytilcysteine.pdb'
-rec = '/home/roy.gonzalez-aleman/Posgrado_Bioinf/rec_Eg5.pdb'
-out_dir = '/home/roy.gonzalez-aleman/RoyHub/stdock/data/autodock/results'
 babel = '/home/roy.gonzalez-aleman/miniconda3/bin/obabel'
-self = AutoDocker4(lig, rec, ad4, adt, babel, out_dir, n_runs=8)
+rec_path = sys.argv[1]
+lig_path = sys.argv[2]
+out_dir = sys.argv[3]
+exh = int(sys.argv[4])
+n_poses = int(sys.argv[5])
+rmsd_tol = float(sys.argv[6])
 
-
-# self.run()
-
-# %%
-import pandas as pd
-import matplotlib.pyplot as plt
-
-scores_path = '/home/roy.gonzalez-aleman/RoyHub/stdock/data/autodock/results/docking_poses/poses_scores.txt'
-scores = np.asarray(pd.read_table(scores_path, header=None)[0])
-plt.hist(scores, bins=50, cumulative=False, alpha=0.75)
-plt.show()
-
-print(' '.join([str(x) for x in np.where(scores < -5)[0]]))
-
-# %%
-# =============================================================================
-# Vina
-# =============================================================================
-from vina import Vina
-
-receptor = '/home/roy.gonzalez-aleman/RoyHub/stdock/data/autodock/results/docking_files/5mcq.pdbqt'
-ligand = '/home/roy.gonzalez-aleman/RoyHub/stdock/data/autodock/results/docking_files/ade.pdbqt'
-center = [-44.2, 23.7, -33.1]
-size = [78,  68, 60]
-
-job = Vina()
-job.set_receptor(receptor)
-job.set_ligand_from_file(ligand)
-job.compute_vina_maps(center=center, box_size=size)
-job.dock(exhaustiveness=16, n_poses=5000)
-
-
-job.energies(n_poses=5000)
-job.write_poses('docking_results.pdbqt', overwrite=True, n_poses=10000, energy_range=1000)
+self = AutoDock4(ad4, adt, babel, ad4, rec_path, lig_path, n_poses,
+                 rmsd_tol, [], exh, out_dir)
+self.runner()

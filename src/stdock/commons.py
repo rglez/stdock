@@ -1,6 +1,8 @@
 # Created by roy.gonzalez-aleman at 13/11/2023
 import fnmatch
 import os
+import pickle
+import sys
 from collections import defaultdict
 
 import numpy as np
@@ -82,3 +84,34 @@ def combinator(top_iterable):
             conformer.append(COMB[idx][index])
         ANG.append(conformer)
     return ANG
+
+
+def pickle_to_file(data, file_name):
+    ''' Serialize data using **pickle**.
+
+    Args:
+        data (object)  : any serializable object.
+        file_name (str): name of the **pickle** file to be created.
+    Returns:
+        (str): file_name
+    '''
+    with open(file_name, 'wb') as file:
+        pickle.dump(data, file)
+    return file_name
+
+
+def unpickle_from_file(file_name):
+    ''' Unserialize a **pickle** file.
+
+    Args:
+        file_name (str): file to unserialize.
+    Returns:
+        (object): an unserialized object.
+    '''
+    with open(file_name, 'rb') as file:
+        data = pickle.load(file)
+    return data
+
+
+inf_int = sys.maxsize
+inf_float = float(inf_int)
