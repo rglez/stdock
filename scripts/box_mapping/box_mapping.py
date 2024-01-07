@@ -1,11 +1,26 @@
 # Created by fajardo at 4/1/24
-
+import numpy as np
 from prody import parsePDB, getCoords
+
+
+# todo: convert the whole script into a function with necessary parameters
+# todo: convert into functions anything that can be repeated or reused. Find the meaning of the following in Internet: Stay DRY to avoid being WET
+
+def divide_axes(axis_max, axis_min, max_size):
+    # todo: add docstrings to all functions
+    axis_dim = axis_max - axis_min
+    n_cuts = np.ceil(axis_dim / max_size)
+    lenght = np.round(axis_dim / n_cuts, 2)
+    return int(n_cuts), lenght
+
+
 from tabulate import tabulate
 
 
 # Parsing protein structure
-receptor = parsePDB("/media/fajardo/Fajardo/from_ROY/Docking/ledock/p97ND1.pdb")  # Take into account the location of the PDB file
+receptor_path = '/home/roy.gonzalez-aleman/RoyHub/stdock/scripts/dude_explorations/input_files/p97ND1/receptor.pdb'
+receptor = parsePDB(
+    receptor_path)  # Take into account the location of the PDB file
 
 # Get atom coordinates of the protein
 coords = getCoords(receptor)
@@ -20,6 +35,7 @@ y_max, y_min = y_coords.max(), y_coords.min()
 z_max, z_min = z_coords.max(), z_coords.min()
 
 # Print maximum and minimum values along each axis
+# todo: is this a necessary info to print?
 print("Maximum value along X-axis:", x_max)
 print("Minimum value along X-axis:", x_min)
 print("Maximum value along Y-axis:", y_max)
@@ -28,46 +44,23 @@ print("Maximum value along Z-axis:", z_max)
 print("Minimum value along Z-axis:", z_min)
 
 # Calculate box dimensions
-dx = x_max - x_min
-dy = y_max - y_min
-dz = z_max - z_min
-
-nx = 1
-
-while dx/nx >= 50.0:
-    nx = nx + 1
-else:
-    len_x = dx/nx
-
-ny = 1
-
-while dy/ny >= 50.0:
-    ny = ny + 1
-else:
-    len_y = dy/ny
-
-nz = 1
-
-while dz/nz >= 50.0:
-    nz = nz + 1
-else:
-    len_z = dz/nz
-
-print("The dimensions of each box are: x = %.3f, y = %.3f, z = %.3f" % (len_x, len_y, len_z))
+max_size = 50
+nx, len_x = divide_axes(x_max, x_min, max_size)
+ny, len_y = divide_axes(y_max, y_min, max_size)
+nz, len_z = divide_axes(z_max, z_min, max_size)
+print(f"The dimensions of each box are: x: {len_x}, y: {len_y} and z: {len_z}")
 
 # Calculate the minimum and maximum ranges for each box
 range_min = []
 range_max = []
-
+# todo: unnecessary redeclaration of variables xm, ym, zm. Why?
 xm = x_min
 ym = y_min
 zm = z_min
-
-while zm <= z_max-len_z:
-
+# todo: avoid nested loops as much as possible. I dont really get this ...
+while zm <= z_max - len_z:
     while ym <= y_max:
-
-        while xm <= x_max-len_x:
+        while xm <= x_max - len_x:
             range_min.append(xm)
             range_max.append(xm + len_x)
             xm = xm + len_x
@@ -84,12 +77,14 @@ while zm <= z_max-len_z:
     ym = y_min
     zm = zm + len_z
 
-#Print the ranges of each box in a tabular form
+# todo: avoid the use of external dependencies as much as possible. Why tabulate?
+# Print the ranges of each box in a tabular form
 box = []
 for i in range(len(range_min)):
+    # todo: you just redefined a reserved variable name (list). NEVER do that.
     list = [range_min[i], range_max[i]]
     box.append(list)
-    if (i+1)%3==0:
+    if (i + 1) % 3 == 0:
         print("box", (i + 1) // 3)
         print(tabulate(box, headers=["range_min", "range_max"]))
         box = []

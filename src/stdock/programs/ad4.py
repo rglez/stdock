@@ -1,19 +1,17 @@
 # Created by roy.gonzalez-aleman at 27/12/2023
+import argparse
 import os
 import shutil
 import subprocess as sp
-import sys
-from os.path import join, basename
+from os.path import basename, join
 
 import numpy as np
 import prody as prd
+from scipy.spatial import cKDTree as ckd
 
 import commons as cmn
-from docking import Program
-
-syn = {2500000: 'low',
-       25000000: 'medium',
-       250000000: 'high'}
+from programs import root
+from programs.root import Program, syn
 
 
 def throw_error(cmd, label):
@@ -38,7 +36,8 @@ class AutoDock4(Program):
         self.lig_path = cmn.check_path(lig_path)
         self.ad4_path = cmn.check_path(ad4_path)
         self.adt_path = cmn.check_path(adt_path)
-        self.out_path = join(odir, f'ad4_{syn[self.exhaustiveness_list]}')
+        self.out_path = join(odir, 'autodock4',
+                             f'autodock4_{syn[self.exhaustiveness_list]}')
 
         # # Inferred from class arguments
         self.out_files = join(self.out_path, 'docking_files')
@@ -189,6 +188,44 @@ class AutoDock4(Program):
         ensemble.setAtoms(ag_)
         prd.writePDB(join(self.out_poses, 'poses_coords.pdb'), ensemble)
 
+    def yield_filter_sort(self):
+
+        # Get all scores
+        scores_path = next(
+            cmn.recursive_finder('poses_scores.txt', self.out_poses))
+        with open(scores_path, 'rt') as inp:
+            file_string = inp.readlines()
+        scores = [x.strip() for x in file_string]
+
+        scores_path_out = join(self.out_poses, 'scores.txt')
+        with open(scores_path_out, 'wt') as out:
+            for i, x in enumerate(scores):
+                out.write(f'{i}    {x}\n')
+
+        # Get all poses
+        pdb_path = next(
+            cmn.recursive_finder('poses_coords.pdb', self.out_poses))
+        ensemble = root.Molecule(pdb_path).get_ensemble()
+        out_name = join(self.out_poses, 'poses.pdb')
+        prd.writePDB(out_name, ensemble)
+
+        # Get filtered indices
+        rec_kdt = ckd(self.rec.getCoords())
+        lig_parsed = root.Molecule(pdb_path).parse()
+        filtered_indices, filtered_ligs = root.get_filtered_indices(rec_kdt,
+                                                                    lig_parsed)
+
+        # Get filtered poses
+        lig_filtered = prd.Ensemble()
+        [lig_filtered.addCoordset(x.getCoords()) for x in filtered_ligs]
+        lig_filtered.setAtoms(filtered_ligs[0])
+        prd.writePDB(join(self.out_poses, 'poses_filtered.pdb'), lig_filtered)
+
+        # Get filtered scores
+        with open(join(self.out_poses, 'scores_filtered.txt'), 'wt') as out:
+            for index in filtered_indices:
+                out.write(f'{index}    {scores[index]}\n')
+
     def runner(self):
         self.build_hierarchy()
         self.prepare_ligand()
@@ -196,27 +233,82 @@ class AutoDock4(Program):
         self.prepare_gpf()
         self.compute_maps()
         self.prepare_dpf()
-
         self.dock()
         self.output_poses()
         self.convert_poses()
         self.create_pdbqt()
         self.output_scores()
+        self.yield_filter_sort()
 
+    def get_commands(self):
+        return None, None
+
+
+def parse_arguments():
+    # Initializing argparse ---------------------------------------------------
+    desc = '\nWrapper for ad4'
+    parser = argparse.ArgumentParser(prog='ad4',
+                                     description=desc,
+                                     add_help=True,
+                                     epilog='As simple as that ;)',
+                                     allow_abbrev=False)
+    # Arguments: loading trajectory -------------------------------------------
+    all_args = parser.add_argument_group(title='Trajectory options')
+
+    all_args.add_argument('-ad4_path', dest='ad4', action='store',
+                          help='Path to ad4 root dir', type=str,
+                          metavar='ad4', required=True)
+
+    all_args.add_argument('-adt_path', dest='adt', action='store',
+                          help='Path to adt root dir', type=str,
+                          required=False, metavar='adt', default=None)
+
+    all_args.add_argument('-babel_path', dest='babel', action='store',
+                          help='Path to babel root dir', type=str,
+                          required=True,
+                          default=0, metavar='babel')
+
+    all_args.add_argument('-rec_pdb', dest='rec_pdb', action='store',
+                          help='Path to the rec.pdb', type=str, required=True,
+                          default=None, metavar='rec_pdb')
+
+    all_args.add_argument('-lig_pdb', dest='lig_pdb', action='store',
+                          help='Path to the lig.pdb', type=str, required=True,
+                          default=None, metavar='rec_pdb')
+
+    all_args.add_argument('-n_poses', dest='n_poses', action='store',
+                          help='Number of requested poses', type=int,
+                          required=True, default=None, metavar='stride')
+
+    all_args.add_argument('-rmsd_tol', dest='rmsd_tol', action='store',
+                          help='rmsd cutoff for clustering', type=float,
+                          required=True, default=None, metavar='rmsd_tol')
+
+    all_args.add_argument('-exh', dest='exh', action='store',
+                          help='exhaustiveness', type=float,
+                          required=True, default=None, metavar='exh')
+
+    all_args.add_argument('-odir', action='store', dest='odir',
+                          help='Output directory to store analysis',
+                          type=str, required=True, default=None,
+                          metavar='odir')
+    user_inputs = parser.parse_args()
+    return user_inputs
+
+
+def main():
+    args = parse_arguments()  # for calling as cli
+
+    ad4_obj = AutoDock4(args.ad4, args.adt, args.babel,
+                        args.ad4, args.rec_pdb, args.lig_pdb,
+                        args.n_poses, args.rmsd_tol, [], args.exh,
+                        args.odir)
+    ad4_obj.runner()
+
+
+if __name__ == '__main__':
+    main()
 
 # =============================================================================
 #
 # =============================================================================
-ad4 = '/home/roy.gonzalez-aleman/SoftWare/autodock/x86_64Linux2/'
-adt = '/home/roy.gonzalez-aleman/SoftWare/autodock/mgltools_x86_64Linux2_1.5.7/MGLToolsPckgs/AutoDockTools/Utilities24/'
-babel = '/home/roy.gonzalez-aleman/miniconda3/bin/obabel'
-rec_path = sys.argv[1]
-lig_path = sys.argv[2]
-out_dir = sys.argv[3]
-exh = int(sys.argv[4])
-n_poses = int(sys.argv[5])
-rmsd_tol = float(sys.argv[6])
-
-self = AutoDock4(ad4, adt, babel, ad4, rec_path, lig_path, n_poses,
-                 rmsd_tol, [], exh, out_dir)
-self.runner()

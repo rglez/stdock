@@ -28,6 +28,7 @@ os.makedirs(output_dir, exist_ok=True)
 min_clust_size = 2
 cutoff = 2
 bitqt = '/home/roy.gonzalez-aleman/miniconda3/envs/stdock/bin/bitqt'
+
 # =============================================================================
 # Clustering
 # =============================================================================

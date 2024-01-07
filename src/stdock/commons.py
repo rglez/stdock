@@ -5,7 +5,12 @@ import pickle
 import sys
 from collections import defaultdict
 
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 import numpy as np
+
+inf_int = sys.maxsize
+inf_float = float(inf_int)
 
 
 def check_path(path, check_exist=True):
@@ -87,31 +92,23 @@ def combinator(top_iterable):
 
 
 def pickle_to_file(data, file_name):
-    ''' Serialize data using **pickle**.
-
-    Args:
-        data (object)  : any serializable object.
-        file_name (str): name of the **pickle** file to be created.
-    Returns:
-        (str): file_name
-    '''
     with open(file_name, 'wb') as file:
         pickle.dump(data, file)
     return file_name
 
 
 def unpickle_from_file(file_name):
-    ''' Unserialize a **pickle** file.
-
-    Args:
-        file_name (str): file to unserialize.
-    Returns:
-        (object): an unserialized object.
-    '''
     with open(file_name, 'rb') as file:
         data = pickle.load(file)
     return data
 
 
-inf_int = sys.maxsize
-inf_float = float(inf_int)
+def generic_matplotlib(width=(4, 4)):
+    mpl.rc('figure', figsize=width, dpi=600)
+    plt.rcParams['font.family'] = 'sans-serif'
+    mpl.rc('axes', labelsize=8)
+    mpl.rc('lines', linewidth=1, color='k')
+
+
+def reset_matplotlib():
+    mpl.rcParams.update(mpl.rcParamsDefault)
