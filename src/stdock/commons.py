@@ -8,6 +8,7 @@ from collections import defaultdict
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.colors import LinearSegmentedColormap
 
 inf_int = sys.maxsize
 inf_float = float(inf_int)
@@ -103,12 +104,45 @@ def unpickle_from_file(file_name):
     return data
 
 
-def generic_matplotlib(width=(4, 4)):
-    mpl.rc('figure', figsize=width, dpi=600)
+def generic_matplotlib(width):
+    plt.rcParams['figure.dpi'] = 600
+    plt.rcParams['figure.figsize'] = width
     plt.rcParams['font.family'] = 'sans-serif'
-    mpl.rc('axes', labelsize=8)
-    mpl.rc('lines', linewidth=1, color='k')
+    plt.rcParams['axes.linewidth'] = 0.5
 
 
 def reset_matplotlib():
     mpl.rcParams.update(mpl.rcParamsDefault)
+
+
+def get_final_names(mapping_labels):
+    exh_dict = {'high': 'H', 'medium': 'M', 'low': 'L'}
+    sf_dict = {'dkoes_fast': 'dkoes1',
+               'dkoes_scoring': 'dkoes2',
+               'ad4_scoring': 'ad4',
+               'autodock4': 'ad4'}
+    prog_dict = {'autodock4': 'ad4'}
+    final_names = []
+    for i, name in enumerate(mapping_labels):
+        splitted = name.split('_')
+        N = len(splitted)
+        if N == 3:
+            prog, sf, exh = splitted
+        elif N == 4:
+            prog, *sf, exh = splitted
+            sf = '_'.join(sf)
+        else:
+            raise ValueError('Error splitting column name')
+        prog = prog_dict.get(prog, prog)
+        sf = sf_dict.get(sf, sf)
+        exh = exh_dict[exh]
+        final_names.append((prog.upper(), sf, exh))
+    return final_names
+
+
+def chop_cmap_frac(cmap, frac):
+    """Chops off the beginning `frac` fraction of a colormap."""
+    cmap_as_array = cmap(np.arange(256))
+    cmap_as_array = cmap_as_array[int(frac * len(cmap_as_array)):]
+    list_name = cmap.name + f"_frac{frac}"
+    return LinearSegmentedColormap.from_list(list_name, cmap_as_array)

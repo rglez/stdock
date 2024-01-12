@@ -3,9 +3,10 @@ import argparse
 import os
 import shutil
 import subprocess as sp
-from os.path import basename, join
+from os.path import basename, join, split
 
 import numpy as np
+import numpy_indexed as npi
 import prody as prd
 from scipy.spatial import cKDTree as ckd
 
@@ -19,6 +20,15 @@ def throw_error(cmd, label):
         raise RuntimeError(f'Problems preparing {label.lower()} !')
     else:
         print(f'\n{label} has been correctly prepared')
+
+
+def get_ordering(lig_pdb_path):
+    lig_pdb_qt_path = f'{lig_pdb_path}qt'
+    parsed_pdb = prd.parsePDB(lig_pdb_path)
+    parsed_qt = root.Molecule(lig_pdb_qt_path).parse()[0]
+    order = npi.indices(parsed_qt.getCoords(), parsed_pdb.getCoords())
+    out_name = join(split(lig_pdb_path)[0], 'qt_order')
+    np.save(out_name, order)
 
 
 class AutoDock4(Program):
@@ -64,6 +74,7 @@ class AutoDock4(Program):
         lig_script = next(cmn.recursive_finder('prep*lig*4.py', self.adt_path))
         cmd = sp.run([self.pythonsh, lig_script, '-l', self.lig_path])
         throw_error(cmd, 'Ligand')
+        get_ordering(self.lig_path)
 
     def prepare_receptor(self):
         os.chdir(self.out_files)
