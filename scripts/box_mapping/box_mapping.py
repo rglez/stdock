@@ -1,90 +1,48 @@
-# Created by fajardo at 4/1/24
 import numpy as np
 from prody import parsePDB, getCoords
 
+def coords():
+    receptor_path = input("input your protein path ")
+    receptor = parsePDB(receptor_path)
+    coords = getCoords(receptor)
 
-# todo: convert the whole script into a function with necessary parameters
-# todo: convert into functions anything that can be repeated or reused. Find the meaning of the following in Internet: Stay DRY to avoid being WET
+    x_coords = coords[:, 0]
+    y_coords = coords[:, 1]
+    z_coords = coords[:, 2]
 
-def divide_axes(axis_max, axis_min, max_size):
-    # todo: add docstrings to all functions
-    axis_dim = axis_max - axis_min
-    n_cuts = np.ceil(axis_dim / max_size)
-    lenght = np.round(axis_dim / n_cuts, 2)
-    return int(n_cuts), lenght
+    x_max, x_min = x_coords.max(), x_coords.min()
+    y_max, y_min = y_coords.max(), y_coords.min()
+    z_max, z_min = z_coords.max(), z_coords.min()
 
+    max_size = 50
 
-from tabulate import tabulate
+    coords_in_x = [x_min]
+    axis_dim_x = np.round(x_max - x_min, 2)
+    n_cuts_x = np.ceil(axis_dim_x / max_size)
+    lenght_x = np.round(axis_dim_x / n_cuts_x, 2)
+    print(f"in the x axis are {n_cuts_x} boxes, each one with a lenght of {lenght_x} Angstrons")
+    while x_min < x_max:
+        x_min = np.round(x_min + lenght_x, 2)
+        coords_in_x.append(x_min)
 
+    coords_in_y = [y_min]
+    axis_dim_y = np.round(y_max - y_min, 2)
+    n_cuts_y = np.ceil(axis_dim_y / max_size)
+    lenght_y = np.round(axis_dim_y / n_cuts_y, 2)
+    print(f"in the Y axis are {n_cuts_y} boxes, each one with a lenght of {lenght_y} Angstrons")
+    while y_min < y_max:
+        y_min = np.round(y_min + lenght_y, 2)
+        coords_in_y.append(y_min)
 
-# Parsing protein structure
-receptor_path = '/home/roy.gonzalez-aleman/RoyHub/stdock/scripts/dude_explorations/input_files/p97ND1/receptor.pdb'
-receptor = parsePDB(
-    receptor_path)  # Take into account the location of the PDB file
+    coords_in_z = [z_min]
+    axis_dim_z = np.round(z_max - z_min, 2)
+    n_cuts_z = np.ceil(axis_dim_z / max_size)
+    lenght_z = np.round(axis_dim_z / n_cuts_z, 2)
+    print(f"in the z axis are {n_cuts_z} boxes, each one with a lenght of {lenght_z} Angstrons")
+    while z_min < z_max:
+        z_min = np.round(z_min + lenght_z, 2)
+        coords_in_z.append(z_min)
 
-# Get atom coordinates of the protein
-coords = getCoords(receptor)
+    return f"coordinates of each vertex in X axis {coords_in_x}, coordinates of each vertex in Y axis {coords_in_y}, coordinates of each vertex in Z axis {coords_in_z}"
 
-# Obtain maximum and minimum values along each axis
-x_coords = coords[:, 0]
-y_coords = coords[:, 1]
-z_coords = coords[:, 2]
-
-x_max, x_min = x_coords.max(), x_coords.min()
-y_max, y_min = y_coords.max(), y_coords.min()
-z_max, z_min = z_coords.max(), z_coords.min()
-
-# Print maximum and minimum values along each axis
-# todo: is this a necessary info to print?
-print("Maximum value along X-axis:", x_max)
-print("Minimum value along X-axis:", x_min)
-print("Maximum value along Y-axis:", y_max)
-print("Minimum value along Y-axis:", y_min)
-print("Maximum value along Z-axis:", z_max)
-print("Minimum value along Z-axis:", z_min)
-
-# Calculate box dimensions
-max_size = 50
-nx, len_x = divide_axes(x_max, x_min, max_size)
-ny, len_y = divide_axes(y_max, y_min, max_size)
-nz, len_z = divide_axes(z_max, z_min, max_size)
-print(f"The dimensions of each box are: x: {len_x}, y: {len_y} and z: {len_z}")
-
-# Calculate the minimum and maximum ranges for each box
-range_min = []
-range_max = []
-# todo: unnecessary redeclaration of variables xm, ym, zm. Why?
-xm = x_min
-ym = y_min
-zm = z_min
-# todo: avoid nested loops as much as possible. I dont really get this ...
-while zm <= z_max - len_z:
-    while ym <= y_max:
-        while xm <= x_max - len_x:
-            range_min.append(xm)
-            range_max.append(xm + len_x)
-            xm = xm + len_x
-
-            range_min.append(ym)
-            range_max.append(ym + len_y)
-
-            range_min.append(zm)
-            range_max.append(zm + len_z)
-
-        ym = ym + len_y
-        xm = x_min
-
-    ym = y_min
-    zm = zm + len_z
-
-# todo: avoid the use of external dependencies as much as possible. Why tabulate?
-# Print the ranges of each box in a tabular form
-box = []
-for i in range(len(range_min)):
-    # todo: you just redefined a reserved variable name (list). NEVER do that.
-    list = [range_min[i], range_max[i]]
-    box.append(list)
-    if (i + 1) % 3 == 0:
-        print("box", (i + 1) // 3)
-        print(tabulate(box, headers=["range_min", "range_max"]))
-        box = []
+print(coords())
