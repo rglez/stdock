@@ -83,7 +83,7 @@ n_conformers = 100
 # =============================================================================
 
 # ==== Prepare folders hierarchy
-root_dir = cmn.proj_path
+root_dir = cmn.proj_dir
 core_set = join(root_dir, 'data/external/coreset')
 output_dir = join(
     root_dir, 'scripts/01_complexes_selection/01_conformers_generation')

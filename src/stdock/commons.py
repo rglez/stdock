@@ -13,7 +13,9 @@ from matplotlib.colors import LinearSegmentedColormap
 # =============================================================================
 # Users trying to reproduce results should only change parameters on this block
 # =============================================================================
-proj_path = '/home/roy.gonzalez-aleman/RoyHub/stdock'
+proj_dir = '/home/roy.gonzalez-aleman/RoyHub/stdock'
+pythonsh_path = '/home/roy.gonzalez-aleman/SoftWare/autodock/mgltools_x86_64Linux2_1.5.7/bin/pythonsh'
+adtools_dir = '/home/roy.gonzalez-aleman/SoftWare/autodock/mgltools_x86_64Linux2_1.5.7/MGLToolsPckgs/AutoDockTools/Utilities24/'
 # =============================================================================
 
 

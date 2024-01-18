@@ -1,4 +1,8 @@
 # Created by roy.gonzalez-aleman at 14/01/2024
+"""
+Prepares ligand and receptor molecules using Autodock Tools scripts
+"""
+
 import os
 import shutil
 import subprocess as sp
@@ -10,9 +14,16 @@ import prody as prd
 
 import commons as cmn
 import root
-# todo: be careful with paths management here
+
 
 def throw_error(cmd, label):
+    """
+    Throw error on subprocess command calls
+
+    Args:
+        cmd: string of a command
+        label: an identifier for the kind of molecule being prepared
+    """
     if not cmd.returncode == 0:
         raise RuntimeError(f'Problems preparing {label.lower()} !')
     else:
@@ -20,6 +31,16 @@ def throw_error(cmd, label):
 
 
 def get_ordering(lig_pdb_path, lig_pdbqt_path):
+    """
+    Gets the atomic ordering between a pdbqt file and its original pdb
+
+    Args:
+        lig_pdb_path: path to the ligand.pdb
+        lig_pdbqt_path: path to the ligand.pdbqt
+
+    Returns:
+        Saves the ordering in the "qt_order.npy" file
+    """
     parsed_pdb = prd.parsePDB(lig_pdb_path)
     parsed_qt = root.Molecule(lig_pdbqt_path).parse()[0]
     order = npi.indices(parsed_qt.getCoords(), parsed_pdb.getCoords())
@@ -28,7 +49,19 @@ def get_ordering(lig_pdb_path, lig_pdbqt_path):
 
 
 class Preparator:
+    """
+    Prepares ligand and receptor molecules using Autodock Tools scripts
+    """
+
     def __init__(self, pythonsh, adt_path, rec_path, lig_path, out_path):
+        """
+        Args:
+            pythonsh: path to the pythonsh's Autodock Tools script
+            adt_path: path to the root dir of Autodock Tools
+            rec_path: path to the receptor mlecule
+            lig_path: path to the ligand molecule
+            out_path: path to the output directory
+        """
         # Parse arguments
         self.pythonsh = cmn.check_path(pythonsh)
         self.adt_path = cmn.check_path(adt_path)
@@ -47,6 +80,13 @@ class Preparator:
         self.prepare()
 
     def ligand_to_pdb(self):
+        """
+        Converts ligand to pdb if not already in this format
+
+        Returns:
+                path to the new ligand.pdb file if ligand in another format OR
+                the same path to the original ligand.pdb
+        """
         lig_ext = basename(self.lig_path).split('.')[-1]
         if lig_ext != 'pdb':
             lig_parsed = root.Molecule(self.lig_path).parse()[0]
@@ -55,6 +95,12 @@ class Preparator:
             return self.lig_path
 
     def prepare_ligand(self):
+        """
+        Prepares ligand using Autodock Tools script
+
+        Returns:
+            raises error if something goes wrong
+        """
         # Prepare ligand
         os.chdir(self.out_path)
         cmd = sp.run(
@@ -63,11 +109,21 @@ class Preparator:
         throw_error(cmd, 'Ligand')
 
     def prepare_receptor(self):
+        """
+        Prepares receptor using Autodock Tools script
+
+        Returns:
+            raises error if something goes wrong
+        """
         os.chdir(self.out_path)
         cmd = sp.run([self.pythonsh, self.rec_prep_script, '-r', rec_path])
         throw_error(cmd, 'Receptor')
 
     def prepare(self):
+        """
+        Launch the preparation of ligand and receptor. Gets ordering if
+         pdb2pdbqt conversion was performed
+        """
         # Prepare ligand
         self.prepare_ligand()
 
@@ -81,16 +137,19 @@ class Preparator:
         self.prepare_receptor()
 
 
-# =============================================================================
-# User-defined parameters
-# =============================================================================
-pythonsh = '/home/roy.gonzalez-aleman/SoftWare/autodock/mgltools_x86_64Linux2_1.5.7/bin/pythonsh'
-ad_tools_dir = '/home/roy.gonzalez-aleman/SoftWare/autodock/mgltools_x86_64Linux2_1.5.7/MGLToolsPckgs/AutoDockTools/Utilities24/'
-
-all_files = '/home/roy.gonzalez-aleman/DataHub/data_raw/v2013-core/'
-selected_log = abspath('scripts/01_complexes_selection/03_selection/report_selection.txt')
+# ==== Prepare folders hierarchy
+proj_dir = cmn.proj_dir
+pythonsh = cmn.pythonsh_path
+ad_tools_dir = cmn.adtools_dir
+all_files = join(proj_dir, 'data/external/coreset')
+selected_log = join(proj_dir,
+                    'scripts/01_complexes_selection/03_selection/report_selection.txt')
 root_dir = split(abspath(selected_log))[0]
-out_dir = abspath('scripts/02_complexes_preparation/01_prepared_with_adt')
+out_dir = join(proj_dir,
+               'scripts/02_complexes_preparation/01_prepared_with_adt')
+shutil.rmtree(out_dir, ignore_errors=True)
+
+# ==== Start the preparation
 failed = []
 with open(selected_log, 'rt') as sele:
     for line in sele:

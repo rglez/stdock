@@ -15,7 +15,7 @@ import commons as cmn
 # =============================================================================
 
 # ==== Prepare folders hierarchy
-root_dir = cmn.proj_path
+root_dir = cmn.proj_dir
 topo_traj_pick = join(
     root_dir, 'scripts/01_complexes_selection/topo_traj.pick')
 out_dir = join(root_dir, 'scripts/01_complexes_selection/03_selection')

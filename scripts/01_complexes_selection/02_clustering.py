@@ -42,7 +42,7 @@ min_clust_size = 2
 # =============================================================================
 
 # ==== Prepare folders hierarchy
-root_dir = cmn.proj_path
+root_dir = cmn.proj_dir
 conformers_dir = join(root_dir,
                       'scripts/01_complexes_selection/01_conformers_generation')
 output_dir = join(root_dir, 'scripts/01_complexes_selection/02_clustering')
