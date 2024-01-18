@@ -10,6 +10,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
 
+# =============================================================================
+# Users trying to reproduce results should only change parameters on this block
+# =============================================================================
+proj_path = '/home/roy.gonzalez-aleman/RoyHub/stdock'
+# =============================================================================
+
+
 inf_int = sys.maxsize
 inf_float = float(inf_int)
 
@@ -21,7 +28,7 @@ def check_path(path, check_exist=True):
     elif (not check_exist) and (not path_exists):
         return path
     elif (not check_exist) and path_exists:
-        return path
+        return path  # todo: check this behaviour
     elif check_exist and (not path_exists):
         raise ValueError(f'\nNo such file or directory: {path}')
     else:

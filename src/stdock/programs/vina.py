@@ -99,12 +99,12 @@ class Vina(root.Program):
 # Debugging area
 # =============================================================================
 
-# inputs_dir = 'scripts/dude_explorations/input_files/'
+# inputs_dir = 'scripts/03_complexes_explorations/input_files/'
 # cases = os.listdir(inputs_dir)
 # for case in cases:
 #     lig_qt = join(inputs_dir, case, 'ligand.pdbqt')
 #     rec_qt = join(inputs_dir, case, 'receptor.pdbqt')
-#     out_dir = f'scripts/dude_explorations/explorations/{case}'
+#     out_dir = f'scripts/03_complexes_explorations/explorations/{case}'
 #
 # py_exe = '/home/roy.gonzalez-aleman/miniconda3/envs/stdock/bin/python'
 # n_poses = 2000

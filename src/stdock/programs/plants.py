@@ -126,11 +126,11 @@ class Plants(root.Program):
 #
 # root_dir = abspath('.')
 # lig_mol2 = join(root_dir,
-#                 'scripts/dude_explorations/input_files/p97ND1/ligand.mol2')
+#                 'scripts/03_complexes_explorations/input_files/p97ND1/ligand.mol2')
 # rec_mol2 = join(root_dir,
-#                 'scripts/dude_explorations/input_files/p97ND1/receptor.mol2')
+#                 'scripts/03_complexes_explorations/input_files/p97ND1/receptor.mol2')
 #
-# out_dir = join(root_dir, 'scripts/dude_explorations/explorations/')
+# out_dir = join(root_dir, 'scripts/03_complexes_explorations/explorations/')
 # n_poses = 2000
 # rmsd_tol = 1.0
 #

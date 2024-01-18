@@ -423,8 +423,8 @@ def get_matrix_from_topotraj(trajectory, topology, selection, cutoff):
 # =============================================================================
 import prody as prd
 
-trajectory = '/home/roy.gonzalez-aleman/RoyHub/stdock/scripts/dude_selection/01_conformers_generation/nos1_conformers.pdb'
-topology = '/home/roy.gonzalez-aleman/RoyHub/stdock/scripts/dude_selection/01_conformers_generation/top_nos1_conformers.pdb'
+trajectory = '/home/roy.gonzalez-aleman/RoyHub/stdock/scripts/01_complexes_selection/01_conformers_generation/nos1_conformers.pdb'
+topology = '/home/roy.gonzalez-aleman/RoyHub/stdock/scripts/01_complexes_selection/01_conformers_generation/top_nos1_conformers.pdb'
 selection = 'all'
 cutoff = 2
 

@@ -18,7 +18,7 @@ from tabulate import tabulate
 
 
 # Parsing protein structure
-receptor_path = '/home/roy.gonzalez-aleman/RoyHub/stdock/scripts/dude_explorations/input_files/p97ND1/receptor.pdb'
+receptor_path = '/scripts/03_complexes_explorations/input_files/p97ND1/receptor.pdb'
 receptor = parsePDB(
     receptor_path)  # Take into account the location of the PDB file
 
