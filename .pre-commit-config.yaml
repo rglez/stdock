@@ -1,21 +1,21 @@
-exclude: '^docs/conf.py'
+#exclude: '^docs/conf.py'
 
-repos:
-- repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v4.4.0
-  hooks:
-  - id: trailing-whitespace
-  - id: check-added-large-files
-  - id: check-ast
-  - id: check-json
-  - id: check-merge-conflict
-  - id: check-xml
-  - id: check-yaml
-  - id: debug-statements
-  - id: end-of-file-fixer
-  - id: requirements-txt-fixer
-  - id: mixed-line-ending
-    args: ['--fix=auto']  # replace 'auto' with 'lf' to enforce Linux/Mac line endings or 'crlf' for Windows
+#repos:
+#- repo: https://github.com/pre-commit/pre-commit-hooks
+#  rev: v4.4.0
+#  hooks:
+#  - id: trailing-whitespace
+#  - id: check-added-large-files
+#  - id: check-ast
+#  - id: check-json
+#  - id: check-merge-conflict
+#  - id: check-xml
+#  - id: check-yaml
+#  - id: debug-statements
+#  - id: end-of-file-fixer
+#  - id: requirements-txt-fixer
+#  - id: mixed-line-ending
+#    args: ['--fix=auto']  # replace 'auto' with 'lf' to enforce Linux/Mac line endings or 'crlf' for Windows
 
 ## If you want to automatically "modernize" your Python code:
 # - repo: https://github.com/asottile/pyupgrade
@@ -35,16 +35,16 @@ repos:
 #       --remove-unused-variables,
 #     ]
 
-- repo: https://github.com/PyCQA/isort
-  rev: 5.11.4
-  hooks:
-  - id: isort
+#- repo: https://github.com/PyCQA/isort
+#  rev: 5.11.4
+#  hooks:
+#  - id: isort
 
-- repo: https://github.com/psf/black
-  rev: stable
-  hooks:
-  - id: black
-    language_version: python3
+#- repo: https://github.com/psf/black
+#  rev: stable
+#  hooks:
+#  - id: black
+#    language_version: python3
 
 ## If like to embrace black styles even in the docs:
 # - repo: https://github.com/asottile/blacken-docs
@@ -53,10 +53,10 @@ repos:
 #   - id: blacken-docs
 #     additional_dependencies: [black]
 
-- repo: https://github.com/PyCQA/flake8
-  rev: 5.0.4
-  hooks:
-  - id: flake8
+#- repo: https://github.com/PyCQA/flake8
+#  rev: 5.0.4
+#  hooks:
+#  - id: flake8
   ## You can add flake8 plugins via `additional_dependencies`:
   #  additional_dependencies: [flake8-bugbear]
 
