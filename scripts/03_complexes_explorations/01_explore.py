@@ -1,79 +1,66 @@
 # Created by roy.gonzalez-aleman at 26/12/2023
-import os
 from os.path import join
+
+from programs.plants import Plants
+
 
 # todo: ensure correct ordering will be used in rmsd calculations (AD4 issue)
 # todo: correct autodock4 exhaustiveness
 # todo: add ability to restart in run_commands
 
-# =============================================================================
-# General Organization & Parameters
-# =============================================================================
-inputs_dir = '/scripts/03_complexes_explorations/input_files'
-cases = os.listdir(inputs_dir)
 
-for case in cases:
-    lig_qt = join(inputs_dir, case, 'ligand.pdbqt')
-    lig_mol2 = join(inputs_dir, case, 'ligand.mol2')
-    rec_qt = join(inputs_dir, case, 'receptor.pdbqt')
-    rec_pdb = join(inputs_dir, case, 'receptor.pdb')
-    lig_pdb = join(inputs_dir, case, 'ligand.pdb')
-    rec_mol2 = join(inputs_dir, case, 'receptor.mol2')
-    out_dir = f'/scripts/03_complexes_explorations/explorations/{case}'
-    os.makedirs(out_dir, exist_ok=False)
-    print(case, out_dir)
+def run_plants(plants_exe, spores_exe, rec_mol2, lig_mol2, n_poses, rmsd_tol, out_dir):
+    plants_odir = join(out_dir, 'plants')
+    plants_scores = ['plp', 'plp95', 'chemplp']
+    plants_levels = ['speed1', 'speed2', 'speed4']
 
-py_exe = '/home/roy.gonzalez-aleman/miniconda3/envs/stdock/bin/python'
-n_poses = 2000
-rmsd_tol = 1.0
+    PlantsObj = Plants(plants_exe, spores_exe, rec_mol2, lig_mol2, n_poses, rmsd_tol,
+                       plants_scores, plants_levels, plants_odir)
+    PlantsObj.run_commands()
+    PlantsObj.yield_filter_sort()
+
+
+# =============================================================================
+# User-defined parameters
+# =============================================================================
+# num_poses = 5000
+# rmsd_tol = 1.0
+# =============================================================================
+
+# ==== Prepare folders hierarchy
+# proj_dir = cmn.proj_dir
+# inputs_dir = join(
+#     proj_dir, 'scripts/02_complexes_preparation/01_prepared_with_adt')
+# cases = os.listdir(inputs_dir)
+# top_out_dir = join(proj_dir, 'scripts/03_complexes_explorations/01_explored')
+# shutil.rmtree(top_out_dir, ignore_errors=True)
+# os.makedirs(top_out_dir)
+
+# ==== Running programs for each case
+# for case in cases:
+#     Get the files needed to run
+# lig_qt = join(inputs_dir, case, f'{case}_ligand.pdbqt')
+# lig_mol2 = join(inputs_dir, case, f'{case}_ligand.mol2')
+# rec_qt = join(inputs_dir, case, f'{case}_protein.pdbqt')
+# rec_pdb = join(inputs_dir, case, f'{case}_protein.pdb')
+#
+# Build per-case hierarchy
+# case_out_dir = join(top_out_dir, case)
+# os.makedirs(case_out_dir)
+#
+# Run selected programs
+# print(f'Running X on {case}')
+
 
 # %%
 
-# =============================================================================
-# LeDOCK
-# =============================================================================
-# ledock_exe = '/home/roy.gonzalez-aleman/SoftWare/ledock_linux_x86'
-# ledock_odir = join(out_dir, 'ledock')
-# ledock_scores = ledock_levels = []
-#
-# LedockObj = docking.LeDock(ledock_exe, rec_mol2, lig_mol2, n_poses, rmsd_tol,
-#                            ledock_scores, ledock_levels, ledock_odir)
-# LeDockCommands = LedockObj.get_commands()
-
-# =============================================================================
-# RDOCK
-# =============================================================================
-# =============================================================================
-# EDOCK
-# =============================================================================
-
-# =============================================================================
-# DOCK6
-# =============================================================================
-# =============================================================================
-# DOCK38
-# =============================================================================
-
-
-# =============================================================================
-# PLANTS
-# =============================================================================
-# from programs.plants import Plants
-# plants_exe = '/home/roy.gonzalez-aleman/SoftWare/PLANTS1.2_64bit'
-# plants_odir = join(out_dir, 'plants')
-# plants_scores = ['plp', 'plp95', 'chemplp']
-# plants_levels = ['speed1', 'speed2', 'speed4']
-# PlantsObj = Plants(plants_exe, rec_mol2, lig_mol2, n_poses, rmsd_tol,
-#                    plants_scores, plants_levels, plants_odir)
-# PlantsObj.run_commands()
-# PlantsObj.yield_filter_sort()
 # =============================================================================
 # Vina
 # =============================================================================
 # from programs.vina import Vina
 #
 # vina_exe = "/home/roy.gonzalez-aleman/SoftWare/vina_1.2.5_linux_x86_64"
-# vina_odir = join(out_dir, 'vina')
+# vina_odir = join(case_out_dir, 'vina')
 # vina_scores = ['vina', 'vinardo']
 # vina_levels = [8, 80, 800]
 # VinaObj = Vina(vina_exe, rec_qt, lig_qt, n_poses, rmsd_tol,
@@ -87,7 +74,7 @@ rmsd_tol = 1.0
 # from programs.qvinaw import QvinaW
 #
 # qvinaw_exe = '/home/roy.gonzalez-aleman/SoftWare/qvina-w'
-# qvinaw_odir = join(out_dir, 'qvinaw')
+# qvinaw_odir = join(case_out_dir, 'qvinaw')
 # qvinaw_scores = []
 # qvinaw_levels = [8, 80, 800]
 # QvinawObj = QvinaW(qvinaw_exe, rec_qt, lig_qt, n_poses, rmsd_tol,
@@ -101,7 +88,7 @@ rmsd_tol = 1.0
 # from programs.smina import Smina
 #
 # smina_exe = "/home/roy.gonzalez-aleman/SoftWare/smina.static"
-# smina_odir = join(out_dir, 'smina')
+# smina_odir = join(case_out_dir, 'smina')
 # smina_scores = ['vina', 'vinardo', 'dkoes_fast', 'dkoes_scoring']
 # smina_levels = [8, 80, 800]
 # SminaObj = Smina(smina_exe, rec_qt, lig_qt, n_poses, rmsd_tol,
@@ -126,12 +113,15 @@ rmsd_tol = 1.0
 # for exh in tqdm(ad4_levels, total=len(ad4_levels)):
 #     cmd = (f'{py_exe} {ad4_exe} -ad4_path {ad4_path} -adt_path {adt_path}'
 #            f' -babel_path {babel_path} -rec_pdb {rec_pdb} -lig_pdb {lig_pdb}'
-#            f' -n_poses {n_poses} -rmsd_tol {rmsd_tol} -exh {exh} -odir {out_dir}')
+#            f' -n_poses {n_poses} -rmsd_tol {rmsd_tol} -exh {exh} -odir {case_out_dir}')
 #
 #     cmd_list = cmd.split()
 #     cmd_run = sp.Popen(bench + cmd_list, text=True, stdout=sp.PIPE,
 #                        stderr=sp.PIPE)
 #     output, errors = cmd_run.communicate()
-#     odir = join(out_dir, 'autodock4', f'autodock4_{ad4_levels[exh]}')
+#     odir = join(case_out_dir, 'autodock4', f'autodock4_{ad4_levels[exh]}')
 #     log_name = join(odir, odir.split(os.sep)[-1] + '.log')
 #     root.write_string(output + errors, log_name)
+# =============================================================================
+# DOCK6
+# =============================================================================

@@ -14,8 +14,14 @@ from matplotlib.colors import LinearSegmentedColormap
 # Users trying to reproduce results should only change parameters on this block
 # =============================================================================
 proj_dir = '/home/roy.gonzalez-aleman/RoyHub/stdock'
+
+py_exe = '/home/roy.gonzalez-aleman/miniconda3/envs/stdock/bin/python'
+
 pythonsh_path = '/home/roy.gonzalez-aleman/SoftWare/autodock/mgltools_x86_64Linux2_1.5.7/bin/pythonsh'
 adtools_dir = '/home/roy.gonzalez-aleman/SoftWare/autodock/mgltools_x86_64Linux2_1.5.7/MGLToolsPckgs/AutoDockTools/Utilities24/'
+
+plants_exe = '/home/roy.gonzalez-aleman/RoyHub/stdock/programs/PLANTS1.2_64bit'
+spores_exe = '/home/roy.gonzalez-aleman/RoyHub/stdock/programs/SPORES_64bit'
 # =============================================================================
 
 
