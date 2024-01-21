@@ -2,11 +2,10 @@
 """
 Prepares ligand and receptor molecules using Autodock Tools scripts
 """
-
 import os
 import shutil
-import subprocess as sp
-from os.path import basename, join, split, abspath
+from collections import defaultdict
+from os.path import basename, join, split
 
 import numpy as np
 import numpy_indexed as npi
@@ -16,23 +15,10 @@ import commons as cmn
 import root
 
 
-def throw_error(cmd, label):
-    """
-    Throw error on subprocess command calls
-
-    Args:
-        cmd: string of a command
-        label: an identifier for the kind of molecule being prepared
-    """
-    if not cmd.returncode == 0:
-        raise RuntimeError(f'Problems preparing {label.lower()} !')
-    else:
-        print(f'\n{label} has been correctly prepared')
-
-
 def get_ordering(lig_pdb_path, lig_pdbqt_path):
     """
-    Gets the atomic ordering between a pdbqt file and its original pdb
+    Gets the atomic ordering between a pdbqt file and its original pdb before
+    conversion
 
     Args:
         lig_pdb_path: path to the ligand.pdb
@@ -50,33 +36,18 @@ def get_ordering(lig_pdb_path, lig_pdbqt_path):
 
 class Preparator:
     """
-    Prepares ligand and receptor molecules using Autodock Tools scripts
+    Prototype of a Preparator class
     """
 
-    def __init__(self, pythonsh, adt_path, rec_path, lig_path, out_path):
-        """
-        Args:
-            pythonsh: path to the pythonsh's Autodock Tools script
-            adt_path: path to the root dir of Autodock Tools
-            rec_path: path to the receptor mlecule
-            lig_path: path to the ligand molecule
-            out_path: path to the output directory
-        """
-        # Parse arguments
-        self.pythonsh = cmn.check_path(pythonsh)
-        self.adt_path = cmn.check_path(adt_path)
-        self.rec_path = cmn.check_path(rec_path)
-        self.lig_path = cmn.check_path(lig_path)
-        self.lig_pdb_path = self.ligand_to_pdb()
-        self.out_path = cmn.check_path(out_path)
+    def __init__(self, lig_path, rec_path, out_path, **kwargs):
 
-        # Find adt preparation scripts
-        self.lig_prep_script = next(
-            cmn.recursive_finder('prep*_lig*4.py', adt_path))
-        self.rec_prep_script = next(
-            cmn.recursive_finder('prep*_rec*4.py', adt_path))
+        # Parse regular arguments
+        self.lig_path = lig_path
+        self.rec_path = rec_path
+        self.out_path = out_path
+        self.kwargs = kwargs
 
-        # Trigger preparations
+        # Prepare Ligand and Receptor
         self.prepare()
 
     def ligand_to_pdb(self):
@@ -87,70 +58,148 @@ class Preparator:
                 path to the new ligand.pdb file if ligand in another format OR
                 the same path to the original ligand.pdb
         """
-        lig_ext = basename(self.lig_path).split('.')[-1]
+        lig_base = basename(self.lig_path)
+        lig_ext = lig_base.split('.')[-1]
         if lig_ext != 'pdb':
             lig_parsed = root.Molecule(self.lig_path).parse()[0]
-            return prd.writePDB(f'{self.lig_path}.pdb', lig_parsed)
+            out_lig_pdb = join(self.out_path, f'{lig_base}.pdb')
+            return prd.writePDB(out_lig_pdb, lig_parsed)
         else:
             return self.lig_path
 
-    def prepare_ligand(self):
+    def check_kwarg_argument(self, arg_string):
         """
-        Prepares ligand using Autodock Tools script
+        Checks if the arg_string was passed to the kwargs defined on init
+
+        Args:
+            arg_string: argument string to be retrieved in the kwargs
 
         Returns:
-            raises error if something goes wrong
+            argument: the value of arg_string in kwargs. None if not defined
         """
-        # Prepare ligand
-        os.chdir(self.out_path)
-        cmd = sp.run(
-            [self.pythonsh, self.lig_prep_script, '-l', self.lig_path, '-U',
-             '\""'])
-        throw_error(cmd, 'Ligand')
+        argument = self.kwargs.get(arg_string, None)
+        if not argument:
+            raise RuntimeError(f'The {arg_string} argument is mandatory')
+        return argument
+
+    def prepare_ligand(self):
+        """
+        Prepares the ligand
+        """
+        raise NotImplementedError
 
     def prepare_receptor(self):
         """
-        Prepares receptor using Autodock Tools script
-
-        Returns:
-            raises error if something goes wrong
+        Prepares the receptor
         """
-        os.chdir(self.out_path)
-        cmd = sp.run([self.pythonsh, self.rec_prep_script, '-r', rec_path])
-        throw_error(cmd, 'Receptor')
+        raise NotImplementedError
 
     def prepare(self):
         """
-        Launch the preparation of ligand and receptor. Gets ordering if
-         pdb2pdbqt conversion was performed
+        Prepares ligand and receptor together with any other necessary step
         """
+        raise NotImplementedError
+
+
+class SporesPreparator(Preparator):
+    """
+    Prepares ligand and receptor molecules using SPORES scripts (PLANTS)
+    """
+
+    def prepare_mol(self, mol_path):
+        """
+        Prepares a molecule using SPORES
+
+        Args:
+            mol_path: a path to the molecule to be prepared
+        """
+        # Check spores
+        spores_path = self.check_kwarg_argument('spores_path')
+        cmn.check_path(spores_path)
+
+        # Run spore
+        mol_base_name = basename(mol_path).split('.')[0]
+        mol_out_name = join(self.out_path, f'{mol_base_name}_spored.mol2')
+        cmd = f'{spores_path} --mode settypes {mol_path} {mol_out_name}'
+        cmn.shell_run(cmd.split())
+
+    def prepare_receptor(self):
+        self.prepare_mol(self.rec_path)
+
+    def prepare_ligand(self):
+        self.prepare_mol(self.lig_path)
+
+    def prepare(self):
+        self.prepare_receptor()
+        self.prepare_ligand()
+
+
+class AdtPreparator(Preparator):
+    """
+    Prepares ligand and receptor molecules using AutoDock Tools scripts
+    """
+
+    def prepare_ligand(self):
+        # Check adt and pythonsh paths
+        adt_path = self.check_kwarg_argument('adt_path')
+        pythonsh = self.check_kwarg_argument('pythonsh')
+
+        # Prepare ligand
+        os.chdir(self.out_path)
+        lig_prep_script = next(
+            cmn.recursive_finder('prep*_lig*4.py', adt_path))
+        lig_pdb_path = self.ligand_to_pdb()
+        cmd_list = [pythonsh, lig_prep_script, '-l', lig_pdb_path, '-U', '\""']
+        outputs, errors = cmn.shell_run(cmd_list)
+        return outputs, errors
+
+    def prepare_receptor(self):
+        pass
+        # Check adt and pythonsh paths
+        adt_path = self.check_kwarg_argument('adt_path')
+        pythonsh = self.check_kwarg_argument('pythonsh')
+
+        # Prepare receptor
+        os.chdir(self.out_path)
+        rec_prep_script = next(
+            cmn.recursive_finder('prep*_rec*4.py', adt_path))
+        cmd_list = [pythonsh, rec_prep_script, '-r', self.rec_path]
+        outputs, errors = cmn.shell_run(cmd_list)
+        return outputs, errors
+
+    def prepare(self):
+        pass
         # Prepare ligand
         self.prepare_ligand()
 
         # Get order change from pdbqt conversion
-        qt_name = basename(self.lig_path).split('.')[0] + '.pdbqt'
+        qt_name = basename(self.lig_path) + '.pdbqt'
         lig_qt = join(self.out_path, qt_name)
         cmn.check_path(lig_qt)
-        get_ordering(self.lig_pdb_path, lig_qt)
+        lig_pdb_path = self.ligand_to_pdb()
+        get_ordering(lig_pdb_path, lig_qt)
 
         # Prepare receptor
         self.prepare_receptor()
 
 
+# %%
 # ==== Prepare folders hierarchy
 proj_dir = cmn.proj_dir
-pythonsh = cmn.pythonsh_path
+pythonsh = cmn.pythonsh_exe
 ad_tools_dir = cmn.adtools_dir
-all_files = join(proj_dir, 'data/external/coreset')
-selected_log = join(proj_dir,
-                    'scripts/01_complexes_selection/03_selection/report_selection.txt')
-root_dir = split(abspath(selected_log))[0]
-out_dir = join(proj_dir,
-               'scripts/02_complexes_preparation/01_prepared_with_adt')
-shutil.rmtree(out_dir, ignore_errors=True)
+spores_path = cmn.spores_exe
+all_files = cmn.get_abs('data/external/coreset')
+
+selected_log = cmn.get_abs(
+    'scripts/01_complexes_selection/03_selection/report_selection.txt')
+root_dir = split(selected_log)[0]
+out_dir = cmn.get_abs('scripts/02_complexes_preparation/01_prepared_with_adt')
+cmn.makedir_after_overwriting(out_dir)
 
 # ==== Start the preparation
-failed = []
+failed = defaultdict(list)
+
 with open(selected_log, 'rt') as sele:
     for line in sele:
         # Get info from the selected cases log
@@ -162,6 +211,7 @@ with open(selected_log, 'rt') as sele:
         case = basename(lig_path).split('_')[1]
         case_dir_path = join(all_files, case)
         rec_path = join(case_dir_path, f'{case}_protein.pdb')
+        rec_mol2 = join(case_dir_path, f'{case}_protein.mol2')
         rec_parsed = prd.parsePDB(rec_path).protein
         prd.writePDB(rec_path, rec_parsed)
         lig_path = join(case_dir_path, f'{case}_ligand.mol2')
@@ -169,16 +219,26 @@ with open(selected_log, 'rt') as sele:
 
         # Copy info to the output folder
         out_sub_dir = join(out_dir, case)
-        os.makedirs(out_sub_dir, exist_ok=True)
+        cmn.makedir_after_overwriting(out_sub_dir)
         shutil.copy(rec_path, out_sub_dir)
         shutil.copy(lig_path, out_sub_dir)
+        shutil.copy(rec_mol2, out_sub_dir)
         asr_resnums = np.unique(prd.parsePDB(pocket_path).getResnums())
         np.save(join(out_sub_dir, 'bpocket'), asr_resnums)
 
-        # Prepare ligand & receptor
+        # Prepare ligand & receptor with ADT
         try:
-            self = Preparator(pythonsh, ad_tools_dir, rec_path, lig_path,
-                              out_sub_dir)
+            adt = AdtPreparator(lig_path, rec_path, out_sub_dir,
+                                adt_path=ad_tools_dir, pythonsh=pythonsh)
         except RuntimeError:
-            failed.append(case)
+            failed['adt'].append(case)
+            print(f'\nPreparation of {case} with ADT failed')
+
+        # Prepare ligand & receptor with SPORES
+        # try:
+        #     spores = SporesPreparator(lig_path, rec_path, out_sub_dir, spores_path=spores_path)
+        # except RuntimeError:
+        #     failed['spore'].append(case)
+        #     print(f'\nPreparation of {case} with SPORE failed')
+
         os.chdir(root_dir)

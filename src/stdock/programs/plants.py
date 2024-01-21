@@ -13,11 +13,6 @@ import root
 
 
 class Plants(root.Program):
-    def __init__(self, spores_path, exe_path, rec_path, lig_path, n_poses,
-                 rmsd_tol, scoring_functions, exhaustiveness_list, odir):
-        super().__init__(exe_path, rec_path, lig_path, n_poses, rmsd_tol,
-                         scoring_functions, exhaustiveness_list, odir)
-        self.spores_path = spores_path
 
     def create_config(self):
         xc, yc, zc = self.get_rec_center()
