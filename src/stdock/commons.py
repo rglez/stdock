@@ -2,31 +2,16 @@
 import fnmatch
 import os
 import pickle
+import shutil
+import subprocess as sp
 import sys
 from collections import defaultdict
+from os.path import join
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
-
-# =============================================================================
-# Users trying to reproduce results should only change parameters on this block
-# =============================================================================
-proj_dir = '/home/roy.gonzalez-aleman/RoyHub/stdock'
-
-py_exe = '/home/roy.gonzalez-aleman/miniconda3/envs/stdock/bin/python'
-
-pythonsh_path = '/home/roy.gonzalez-aleman/SoftWare/autodock/mgltools_x86_64Linux2_1.5.7/bin/pythonsh'
-adtools_dir = '/home/roy.gonzalez-aleman/SoftWare/autodock/mgltools_x86_64Linux2_1.5.7/MGLToolsPckgs/AutoDockTools/Utilities24/'
-
-plants_exe = '/home/roy.gonzalez-aleman/RoyHub/stdock/programs/PLANTS1.2_64bit'
-spores_exe = '/home/roy.gonzalez-aleman/RoyHub/stdock/programs/SPORES_64bit'
-# =============================================================================
-
-
-inf_int = sys.maxsize
-inf_float = float(inf_int)
 
 
 def check_path(path, check_exist=True):
@@ -43,6 +28,71 @@ def check_path(path, check_exist=True):
         pass
         raise ValueError(
             f'\nPath already exists and will not be overwritten: {path}')
+
+
+# =============================================================================
+# Users trying to reproduce results should change parameters on this block
+# =============================================================================
+proj_dir = '/home/roy.gonzalez-aleman/RoyHub/stdock'
+python_exe = '/home/roy.gonzalez-aleman/miniconda3/envs/stdock/bin/python'
+pythonsh_exe = '/home/roy.gonzalez-aleman/SoftWare/autodock/mgltools_x86_64Linux2_1.5.7/bin/pythonsh'
+adtools_dir = '/home/roy.gonzalez-aleman/SoftWare/autodock/mgltools_x86_64Linux2_1.5.7/MGLToolsPckgs/AutoDockTools/Utilities24/'
+plants_exe = '/home/roy.gonzalez-aleman/RoyHub/stdock/programs/PLANTS1.2_64bit'
+spores_exe = '/home/roy.gonzalez-aleman/RoyHub/stdock/programs/SPORES_64bit'
+# =============================================================================
+
+check_path(proj_dir)
+check_path(python_exe)
+check_path(pythonsh_exe)
+check_path(adtools_dir)
+check_path(plants_exe)
+check_path(spores_exe)
+
+inf_int = sys.maxsize
+inf_float = float(inf_int)
+
+
+def shell_run(cmd_list):
+    """
+    Run a command in a subprocess
+
+    Args:
+        cmd_list: command to run split as list
+
+    Returns:
+        outputs: stdout
+        errors: stderr
+    """
+    cmd_run = sp.Popen(cmd_list, text=True, stdout=sp.PIPE, stderr=sp.PIPE)
+    output, errors = cmd_run.communicate()
+    return output, errors
+
+
+def get_abs(relative_path):
+    """
+    Get the absolute path of a sub-path relative to the project dir. This
+     function infers the project dir's absolute path from a global-defined
+     variable named proj_dir, that should coexist in the same file
+
+    Args:
+        relative_path: relative path inside the project dir
+
+    Returns:
+            the absolute path of the relative_path
+    """
+    joined = join(proj_dir, relative_path)
+    return joined
+
+
+def makedir_after_overwriting(path):
+    """
+    Make a directory after remooving it if already created
+
+    Args:
+        path: path to the dir to be (re)-created
+    """
+    shutil.rmtree(path, ignore_errors=True)
+    os.makedirs(path)
 
 
 def recursive_finder(pattern, root=os.curdir):
