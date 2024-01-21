@@ -1,6 +1,8 @@
 # Created by roy.gonzalez-aleman at 26/12/2023
+import os
 from os.path import join
 
+import commons as cmn
 from programs.plants import Plants
 
 
@@ -9,12 +11,12 @@ from programs.plants import Plants
 # todo: add ability to restart in run_commands
 
 
-def run_plants(plants_exe, spores_exe, rec_mol2, lig_mol2, n_poses, rmsd_tol, out_dir):
+def run_plants(plants_exe, rec_mol2, lig_mol2, n_poses, rmsd_tol, out_dir):
     plants_odir = join(out_dir, 'plants')
     plants_scores = ['plp', 'plp95', 'chemplp']
     plants_levels = ['speed1', 'speed2', 'speed4']
 
-    PlantsObj = Plants(plants_exe, spores_exe, rec_mol2, lig_mol2, n_poses, rmsd_tol,
+    PlantsObj = Plants(plants_exe, rec_mol2, lig_mol2, n_poses, rmsd_tol,
                        plants_scores, plants_levels, plants_odir)
     PlantsObj.run_commands()
     PlantsObj.yield_filter_sort()
@@ -23,34 +25,39 @@ def run_plants(plants_exe, spores_exe, rec_mol2, lig_mol2, n_poses, rmsd_tol, ou
 # =============================================================================
 # User-defined parameters
 # =============================================================================
-# num_poses = 5000
-# rmsd_tol = 1.0
+num_poses = 5000
+rmsd_tol = 1.0
 # =============================================================================
 
 # ==== Prepare folders hierarchy
-# proj_dir = cmn.proj_dir
-# inputs_dir = join(
-#     proj_dir, 'scripts/02_complexes_preparation/01_prepared_with_adt')
-# cases = os.listdir(inputs_dir)
-# top_out_dir = join(proj_dir, 'scripts/03_complexes_explorations/01_explored')
-# shutil.rmtree(top_out_dir, ignore_errors=True)
-# os.makedirs(top_out_dir)
+proj_dir = cmn.proj_dir
+inputs_dir = cmn.get_abs(
+    'scripts/02_complexes_preparation/01_prepared_with_adt')
+cases = os.listdir(inputs_dir)
+top_out_dir = cmn.get_abs('scripts/03_complexes_explorations/01_explored')
+cmn.makedir_after_overwriting(top_out_dir)
 
 # ==== Running programs for each case
-# for case in cases:
-#     Get the files needed to run
-# lig_qt = join(inputs_dir, case, f'{case}_ligand.pdbqt')
-# lig_mol2 = join(inputs_dir, case, f'{case}_ligand.mol2')
-# rec_qt = join(inputs_dir, case, f'{case}_protein.pdbqt')
-# rec_pdb = join(inputs_dir, case, f'{case}_protein.pdb')
-#
-# Build per-case hierarchy
-# case_out_dir = join(top_out_dir, case)
-# os.makedirs(case_out_dir)
-#
-# Run selected programs
-# print(f'Running X on {case}')
+for case in cases:
+    # Get the files needed to run
+    lig_qt = join(inputs_dir, case, f'{case}_ligand.mol2.pdbqt')
+    lig_mol2 = join(inputs_dir, case, f'{case}_ligand.mol2')
+    rec_qt = join(inputs_dir, case, f'{case}_protein.pdbqt')
+    rec_pdb = join(inputs_dir, case, f'{case}_protein.pdb')
+    rec_mol2 = join(inputs_dir, case, f'{case}_protein.mol2')
 
+    # Build per-case hierarchy
+    case_out_dir = join(top_out_dir, case)
+    cmn.makedir_after_overwriting(case_out_dir)
+
+    # Run selected programs
+    # todo: WTF with mol2 charges with spores?
+    # todo: be careful with mol2 having Mg
+    # todo: make a converter from any to any using pybel. Convert to pdb with
+    #       prody then back to mol2
+    print(f'Running PLANTS on {case}')
+    run_plants(cmn.plants_exe, rec_mol2, lig_mol2, num_poses, rmsd_tol,
+               case_out_dir)
 
 # %%
 
@@ -111,7 +118,7 @@ def run_plants(plants_exe, spores_exe, rec_mol2, lig_mol2, n_poses, rmsd_tol, ou
 #
 # bench = ['/usr/bin/time', '-v']
 # for exh in tqdm(ad4_levels, total=len(ad4_levels)):
-#     cmd = (f'{py_exe} {ad4_exe} -ad4_path {ad4_path} -adt_path {adt_path}'
+#     cmd = (f'{python_exe} {ad4_exe} -ad4_path {ad4_path} -adt_path {adt_path}'
 #            f' -babel_path {babel_path} -rec_pdb {rec_pdb} -lig_pdb {lig_pdb}'
 #            f' -n_poses {n_poses} -rmsd_tol {rmsd_tol} -exh {exh} -odir {case_out_dir}')
 #
