@@ -1,6 +1,6 @@
 # Created by roy.gonzalez-aleman at 13/11/2023
 from os.path import join
-
+import os
 import matplotlib as mpl
 import numpy as np
 import pandas as pd
