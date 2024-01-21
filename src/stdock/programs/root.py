@@ -16,9 +16,9 @@ syn = {8: 'low',
        'speed1': 'high',
        'speed2': 'medium',
        'speed4': 'low',
-       250000: 'low',
-       2500000: 'medium',
-       25000000: 'high'}
+       25000: 'low',
+       250000: 'medium',
+       2500000: 'high'}
 
 
 def get_filtered_indices(rec_kdt, lig_parsed):

@@ -94,7 +94,7 @@ def run_ad4(python_exe, ad4_exe, ad4_path, adt_path, babel_path, lig_pdb,
             n_poses, rmsd_tol, out_dir):
 
     n_poses = 2000 if n_poses > 2000 else n_poses
-    ad4_levels = {250000: 'low', 2500000: 'medium', 25000000: 'high'}
+    ad4_levels = {25000: 'low', 250000: 'medium', 2500000: 'high'}
     bench = ['/usr/bin/time', '-v']
     for exh in tqdm(ad4_levels, total=len(ad4_levels)):
         cmd = (
