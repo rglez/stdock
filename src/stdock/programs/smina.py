@@ -5,7 +5,7 @@ from os.path import join, split
 import prody as prd
 from scipy.spatial import cKDTree as ckd
 
-import commons as cmn
+from programs import commons as cmn
 import root
 from programs.vina import Vina
 

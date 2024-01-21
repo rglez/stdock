@@ -2,23 +2,16 @@
 import fnmatch
 import os
 import pickle
+import shutil
+import subprocess as sp
 import sys
 from collections import defaultdict
+from os.path import join
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
-
-# =============================================================================
-# Users trying to reproduce results should only change parameters on this block
-# =============================================================================
-proj_path = '/home/roy.gonzalez-aleman/RoyHub/stdock'
-# =============================================================================
-
-
-inf_int = sys.maxsize
-inf_float = float(inf_int)
 
 
 def check_path(path, check_exist=True):
@@ -35,6 +28,92 @@ def check_path(path, check_exist=True):
         pass
         raise ValueError(
             f'\nPath already exists and will not be overwritten: {path}')
+
+
+def get_abs(relative_path):
+    """
+    Get the absolute path of a sub-path relative to the project dir. This
+     function infers the project dir's absolute path from a global-defined
+     variable named proj_dir, that should coexist in the same file
+
+    Args:
+        relative_path: relative path inside the project dir
+
+    Returns:
+            the absolute path of the relative_path
+    """
+    joined = join(proj_dir, relative_path)
+    return joined
+
+
+# =============================================================================
+# Users trying to reproduce results should change parameters on this block
+# =============================================================================
+# System paths
+python_exe = '/home/roy.gonzalez-aleman/miniconda3/envs/stdock/bin/python'
+check_path(python_exe)
+babel_path = '/home/roy.gonzalez-aleman/miniconda3/bin/obabel'
+check_path(babel_path)
+
+# AutoDock4 paths
+ad4_root = '/home/roy.gonzalez-aleman/SoftWare/autodock/'
+check_path(ad4_root)
+ad4_path = join(ad4_root, 'x86_64Linux2/')
+check_path(ad4_path)
+pythonsh_exe = join(ad4_root, 'mgltools_x86_64Linux2_1.5.7/bin/pythonsh')
+check_path(pythonsh_exe)
+adtools_dir = join(ad4_root,
+                   'mgltools_x86_64Linux2_1.5.7/MGLToolsPckgs/AutoDockTools/Utilities24/')
+check_path(adtools_dir)
+
+# Project paths
+proj_dir = '/home/roy.gonzalez-aleman/RoyHub/stdock'
+check_path(proj_dir)
+plants_exe = get_abs('programs/PLANTS1.2_64bit')
+check_path(plants_exe)
+spores_exe = get_abs('programs/SPORES_64bit')
+check_path(spores_exe)
+vina_exe = get_abs('programs/vina_1.2.5_linux_x86_64')
+check_path(vina_exe)
+qvinaw_exe = get_abs('programs/qvina-w')
+check_path(qvinaw_exe)
+smina_exe = get_abs('programs/smina.static')
+check_path(smina_exe)
+gnina_exe = get_abs('programs/gnina')
+check_path(gnina_exe)
+ad4_exe = get_abs('programs/ad4.py')
+check_path(ad4_exe)
+# =============================================================================
+
+inf_int = sys.maxsize
+inf_float = float(inf_int)
+
+
+def shell_run(cmd_list):
+    """
+    Run a command in a subprocess
+
+    Args:
+        cmd_list: command to run split as list
+
+    Returns:
+        outputs: stdout
+        errors: stderr
+    """
+    cmd_run = sp.Popen(cmd_list, text=True, stdout=sp.PIPE, stderr=sp.PIPE)
+    output, errors = cmd_run.communicate()
+    return output, errors
+
+
+def makedir_after_overwriting(path):
+    """
+    Make a directory after remooving it if already created
+
+    Args:
+        path: path to the dir to be (re)-created
+    """
+    shutil.rmtree(path, ignore_errors=True)
+    os.makedirs(path)
 
 
 def recursive_finder(pattern, root=os.curdir):

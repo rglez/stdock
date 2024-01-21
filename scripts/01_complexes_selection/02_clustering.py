@@ -1,9 +1,15 @@
 # Created by roy.gonzalez-aleman at 24/12/2023
 """
-This script is conceived to cluster the X conformers generated for each ligand
- in the DUDE dataset and then select the most mobile as case study.
+Clusters the X conformers generated for each ligand in the previous step
+and then select the most mobile (more clusters) as case study.
+
+Known Issues:
+    1. pandas will produce a harmless Warning
+    2. bitqt raises errors for cases with a single frame
 """
+
 import os
+import shutil
 from os.path import join, split
 
 from rdkit import Chem
@@ -13,25 +19,38 @@ import commons as cmn
 
 
 def get_n_rot(input_pdb):
+    """
+    Get the number of rotatable bonds
+
+    Args:
+        input_pdb: a pdb-formatted input molecule
+
+    Returns:
+        num_rot: number of rotatable bonds
+
+    """
     mol = Chem.AddHs(Chem.MolFromPDBFile(input_pdb), addCoords=True)
-    return Chem.rdMolDescriptors.CalcNumRotatableBonds(mol), mol.GetAtoms()
+    num_rot = Chem.rdMolDescriptors.CalcNumRotatableBonds(mol), mol.GetAtoms()
+    return num_rot
 
 
 # =============================================================================
 # User-specified parameters
 # =============================================================================
-root_dir = os.path.abspath('.')
+rmsd_cutoff = 2
+min_clust_size = 2
+# =============================================================================
+
+# ==== Prepare folders hierarchy
+root_dir = cmn.proj_dir
 conformers_dir = join(root_dir,
                       'scripts/01_complexes_selection/01_conformers_generation')
 output_dir = join(root_dir, 'scripts/01_complexes_selection/02_clustering')
-os.makedirs(output_dir, exist_ok=True)
-min_clust_size = 2
-cutoff = 2
-bitqt = '/home/roy.gonzalez-aleman/RoyHub/BitQT/bitqt/__main__.py'
+shutil.rmtree(output_dir, ignore_errors=True)
+os.makedirs(output_dir)
+bitqt = join(root_dir, 'programs/bitqt.py')
 
-# =============================================================================
-# Clustering
-# =============================================================================
+# ==== Clustering
 
 # Organize topologies & trajectories
 topo_trajs_files = list(cmn.recursive_finder('*.pdb', conformers_dir))
@@ -47,8 +66,8 @@ for file in topo_trajs_files:
         topo_trajs_dict[splitted[1]]['n_atoms'] = len(num_atoms)
     else:
         topo_trajs_dict[splitted[0]]['traj'] = file
-
-cmn.pickle_to_file(topo_trajs_dict, join(root_dir, 'scripts/01_complexes_selection/topo_traj.pick'))
+pickle_name = join(root_dir, 'scripts/01_complexes_selection/topo_traj.pick')
+cmn.pickle_to_file(topo_trajs_dict, pickle_name)
 
 # Run clustering jobs with bitqt
 for case in topo_trajs_dict:
@@ -56,4 +75,5 @@ for case in topo_trajs_dict:
     traj = topo_trajs_dict[case]['traj']
     out_name = join(output_dir, f'{case}_bitqt')
     os.system(
-        f'{bitqt} -top {topo} -traj {traj} -odir {out_name} -cutoff {cutoff} -min_clust_size {min_clust_size}')
+        f'{bitqt} -top {topo} -traj {traj} -odir {out_name}'
+        f' -cutoff {rmsd_cutoff} -min_clust_size {min_clust_size}')

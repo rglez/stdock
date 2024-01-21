@@ -1,7 +1,7 @@
 # Created by roy.gonzalez-aleman at 22/12/2023
 """
 Generates "n_conformers" for every ligand in "core_set" with a rmsd distance
-of "rmsd_tol. In case of rigid ligands, it is expected fewer conformers to be
+of "rmsd_tol". In case of rigid ligands, it is expected fewer conformers to be
  generated"
 """
 
@@ -83,12 +83,11 @@ n_conformers = 100
 # =============================================================================
 
 # ==== Prepare folders hierarchy
-root_dir = cmn.proj_path
+root_dir = cmn.proj_dir
 core_set = join(root_dir, 'data/external/coreset')
 output_dir = join(
     root_dir, 'scripts/01_complexes_selection/01_conformers_generation')
-shutil.rmtree(output_dir)
-os.makedirs(output_dir)
+cmn.makedir_after_overwriting(output_dir)
 
 # ==== Generate conformers
 target = '*_ligand.mol2'

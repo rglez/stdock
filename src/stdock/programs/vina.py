@@ -8,7 +8,7 @@ import prody as prd
 from scipy.spatial import cKDTree as ckd
 from tqdm import tqdm
 
-import commons as cmn
+from programs import commons as cmn
 import root
 
 
@@ -106,7 +106,7 @@ class Vina(root.Program):
 #     rec_qt = join(inputs_dir, case, 'receptor.pdbqt')
 #     out_dir = f'scripts/03_complexes_explorations/explorations/{case}'
 #
-# py_exe = '/home/roy.gonzalez-aleman/miniconda3/envs/stdock/bin/python'
+# python_exe = '/home/roy.gonzalez-aleman/miniconda3/envs/stdock/bin/python'
 # n_poses = 2000
 # rmsd_tol = 1.0
 #
