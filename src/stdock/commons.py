@@ -49,27 +49,41 @@ def get_abs(relative_path):
 # =============================================================================
 # Users trying to reproduce results should change parameters on this block
 # =============================================================================
+# System paths
 python_exe = '/home/roy.gonzalez-aleman/miniconda3/envs/stdock/bin/python'
+check_path(python_exe)
+babel_path = '/home/roy.gonzalez-aleman/miniconda3/bin/obabel'
+check_path(babel_path)
+
+# AutoDock4 paths
 ad4_root = '/home/roy.gonzalez-aleman/SoftWare/autodock/'
+check_path(ad4_root)
+ad4_path = join(ad4_root, 'x86_64Linux2/')
+check_path(ad4_path)
 pythonsh_exe = join(ad4_root, 'mgltools_x86_64Linux2_1.5.7/bin/pythonsh')
+check_path(pythonsh_exe)
 adtools_dir = join(ad4_root,
                    'mgltools_x86_64Linux2_1.5.7/MGLToolsPckgs/AutoDockTools/Utilities24/')
-proj_dir = '/home/roy.gonzalez-aleman/RoyHub/stdock'
-plants_exe = get_abs('programs/PLANTS1.2_64bit')
-spores_exe = get_abs('programs/SPORES_64bit')
-vina_exe = get_abs("programs/vina_1.2.5_linux_x86_64")
-qvinaw_exe = get_abs('programs/qvina-w')
-smina_exe = get_abs('programs/smina.static')
-# =============================================================================
-check_path(proj_dir)
-check_path(python_exe)
-check_path(pythonsh_exe)
 check_path(adtools_dir)
+
+# Project paths
+proj_dir = '/home/roy.gonzalez-aleman/RoyHub/stdock'
+check_path(proj_dir)
+plants_exe = get_abs('programs/PLANTS1.2_64bit')
 check_path(plants_exe)
+spores_exe = get_abs('programs/SPORES_64bit')
 check_path(spores_exe)
+vina_exe = get_abs('programs/vina_1.2.5_linux_x86_64')
 check_path(vina_exe)
+qvinaw_exe = get_abs('programs/qvina-w')
 check_path(qvinaw_exe)
+smina_exe = get_abs('programs/smina.static')
 check_path(smina_exe)
+gnina_exe = get_abs('programs/gnina')
+check_path(gnina_exe)
+ad4_exe = get_abs('programs/ad4.py')
+check_path(ad4_exe)
+# =============================================================================
 
 inf_int = sys.maxsize
 inf_float = float(inf_int)

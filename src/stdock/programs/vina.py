@@ -8,7 +8,7 @@ import prody as prd
 from scipy.spatial import cKDTree as ckd
 from tqdm import tqdm
 
-import commons as cmn
+from programs import commons as cmn
 import root
 
 
