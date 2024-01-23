@@ -6,7 +6,6 @@ import pandas as pd
 from scipy.spatial import cKDTree as ckd
 
 import commons as cmn
-import root
 
 # todo: smooth color for visual please
 # todo: put a row with normalized distance from the active site
@@ -34,7 +33,7 @@ for case in all_data:
     # Process a single receptor conformation
     input_dir = join(inputs_dir, case)
     rec_path = next(cmn.recursive_finder('receptor.pdb', input_dir))
-    rec_parsed = root.Molecule(rec_path).parse()[0]
+    rec_parsed = cmn.Molecule(rec_path).parse()[0]
     rec_res_nums = rec_parsed.getResnums()
     rec_ckd = ckd(rec_parsed.getCoords())
 

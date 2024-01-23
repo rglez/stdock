@@ -6,17 +6,12 @@ from os.path import join
 from tqdm import tqdm
 
 import commons as cmn
-import root
+import proj_paths as pp
 from programs.gnina import Gnina
 from programs.plants import Plants
 from programs.qvinaw import QvinaW
 from programs.smina import Smina
 from programs.vina import Vina
-
-
-# todo: ensure correct ordering will be used in rmsd calculations (AD4 issue)
-# todo: correct autodock4 exhaustiveness
-# todo: add ability to restart in run_commands
 
 
 def run_plants(plants_exe, rec_mol2, lig_mol2, n_poses, rmsd_tol, out_dir):
@@ -81,8 +76,9 @@ def run_smina(smina_exe, rec_qt, lig_qt, n_poses, rmsd_tol, out_dir):
 
 def run_gnina_no_cnn(gnina_exe, rec_qt, lig_qt, n_poses, rmsd_tol, out_dir):
     gnina_odir = join(out_dir, 'gnina')
-    gnina_scores = ['ad4_scoring', 'default', 'dkoes_fast', 'dkoes_scoring',
-                    'dkoes_scoring_old', 'vina', 'vinardo']
+    gnina_scores = ['ad4_scoring', 'default']
+    # 'dkoes_fast', 'dkoes_scoring', 'dkoes_scoring_old', 'vina', 'vinardo'
+    # should all give the same results as smina
     gnina_levels = [8, 80, 800]
     GninaObj = Gnina(gnina_exe, rec_qt, lig_qt, n_poses, rmsd_tol,
                      gnina_scores, gnina_levels, gnina_odir)
@@ -92,7 +88,6 @@ def run_gnina_no_cnn(gnina_exe, rec_qt, lig_qt, n_poses, rmsd_tol, out_dir):
 
 def run_ad4(python_exe, ad4_exe, ad4_path, adt_path, babel_path, lig_pdb,
             n_poses, rmsd_tol, out_dir):
-
     n_poses = 2000 if n_poses > 2000 else n_poses
     ad4_levels = {25000: 'low', 250000: 'medium', 2500000: 'high'}
     bench = ['/usr/bin/time', '-v']
@@ -102,78 +97,123 @@ def run_ad4(python_exe, ad4_exe, ad4_path, adt_path, babel_path, lig_pdb,
             f' -babel_path {babel_path} -rec_pdb {rec_pdb} -lig_pdb {lig_pdb}'
             f' -n_poses {n_poses} -rmsd_tol {rmsd_tol} -exh {exh} -odir {out_dir}')
 
-        cmd_list = cmd.split()
-        cmd_run = sp.Popen(bench + cmd_list, text=True, stdout=sp.PIPE,
-                           stderr=sp.PIPE)
+        cmd_list = ' '.join(bench) + f' {cmd}'
+        cmd_run = sp.Popen(cmd_list, text=True, stdout=sp.PIPE,
+                           stderr=sp.PIPE, shell=True)
         output, errors = cmd_run.communicate()
 
         odir = join(out_dir, 'autodock4', f'autodock4_{ad4_levels[exh]}')
         log_name = join(odir, odir.split(os.sep)[-1] + '.log')
-        root.write_string(output + errors, log_name)
+        cmn.write_string(output + errors, log_name)
 
 
-# =============================================================================
+def update_pickle(run_state_pickle, case=None, program=None):
+    if os.path.exists(run_state_pickle):
+        data = cmn.unpickle_from_file(run_state_pickle)
+        if case and program:
+            data[case][program] = True
+        cmn.pickle_to_file(data, run_state_pickle)
+    else:
+        data = cmn.recursive_defaultdict()
+        cmn.pickle_to_file(data, run_state_pickle)
+    return data
+
+
+# %%===========================================================================
 # User-defined parameters
 # =============================================================================
-num_poses = 5000
+num_poses = 10000
 rmsd_tol = 1.0
 # =============================================================================
 
-# ==== Prepare folders hierarchy
-proj_dir = cmn.proj_dir
-inputs_dir = cmn.get_abs(
-    'scripts/02_complexes_preparation/01_prepared_with_adt')
-cases = os.listdir(inputs_dir)
-top_out_dir = cmn.get_abs('scripts/03_complexes_explorations/01_explored')
-cmn.makedir_after_overwriting(top_out_dir)
+# Prepare folders hierarchy
+proj_dir = pp.proj_dir
+inputs_dir = join(proj_dir, 'scripts/02_complexes_preparation/01_prepared')
+outputs_dir = join(proj_dir, 'scripts/03_complexes_explorations/01_explored')
+if not os.path.exists(outputs_dir):
+    os.makedirs(outputs_dir)
+else:
+    print('Restarting computations')
 
-# ==== Running programs for each case
-for case in cases:
-    # Get the files needed to run
-    lig_qt = join(inputs_dir, case, f'{case}_ligand.mol2.pdbqt')
-    lig_mol2 = join(inputs_dir, case, f'{case}_ligand.mol2')
-    lig_pdb = join(inputs_dir, case, f'{case}_ligand.mol2.pdb')
-    rec_qt = join(inputs_dir, case, f'{case}_protein.pdbqt')
-    rec_pdb = join(inputs_dir, case, f'{case}_protein.pdb')
-    rec_mol2 = join(inputs_dir, case, f'{case}_protein.mol2')
+# Create a running state log for restarting jobs
+run_state_pickle = join(outputs_dir, 'run_state.pickle')
+run_state = update_pickle(run_state_pickle)
+
+# Running programs for each case
+for case in (cases := os.listdir(inputs_dir)):
 
     # Build per-case hierarchy
-    case_out_dir = join(top_out_dir, case)
-    cmn.makedir_after_overwriting(case_out_dir)
+    case_out_dir = join(outputs_dir, case)
+    if not os.path.exists(case_out_dir):
+        os.makedirs(case_out_dir)
+    else:
+        print(f'Restarting computations inside {case}')
 
-    # =========================================================================
-    # Run selected programs
-    # =========================================================================
+    # Gather input files
+    lig_pdb = join(inputs_dir, case, f'{case}_ligand.pdb')
+    rec_pdb = join(inputs_dir, case, f'{case}_protein.pdb')
+    lig_qt = join(inputs_dir, case, f'{case}_ligand.pdbqt')
+    rec_qt = join(inputs_dir, case, f'{case}_protein.pdbqt')
+    lig_spored = join(inputs_dir, case, f'{case}_ligand_spored.mol2')
+    rec_spored = join(inputs_dir, case, f'{case}_protein_spored.mol2')
 
-    # todo: WTF with mol2 charges with spores?
-    # todo: be careful with mol2 having Mg
-    # todo: make a converter from any to any using pybel. Convert to pdb with
-    #       prody then back to mol2
-    # print(f'Running PLANTS on {case}')
-    # run_plants(cmn.plants_exe, rec_mol2, lig_mol2, num_poses, rmsd_tol,
-    #            case_out_dir)
+    # Run PLANTS
+    if not run_state[case]['PLANTS']:
+        print(f'Running PLANTS on {case}')
+        run_plants(
+            pp.plants_exe, rec_spored, lig_spored, num_poses, rmsd_tol,
+            case_out_dir)
+        run_state = update_pickle(run_state_pickle, case=case,
+                                  program='PLANTS')
+    else:
+        print(f'Skipping PLANTS on {case} as already computed')
 
-    # print(f'Running VINA on {case}')
-    # run_vina(cmn.vina_exe, rec_qt, lig_qt, num_poses, rmsd_tol, case_out_dir)
+    # Run VINA
+    if not run_state[case]['VINA']:
+        print(f'Running VINA on {case}')
+        run_vina(pp.vina_exe, rec_qt, lig_qt, num_poses, rmsd_tol,
+                 case_out_dir)
+        run_state = update_pickle(run_state_pickle, case=case, program='VINA')
+    else:
+        print(f'Skipping VINA on {case} as already computed')
 
-    # print(f'Running QVINA-W on {case}')
-    # run_qvinaw(cmn.qvinaw_exe, rec_qt, lig_qt, num_poses, rmsd_tol,
-    #            case_out_dir)
+    # Run QVINA-W
+    if not run_state[case]['QVINAW']:
+        print(f'Running QVINAW on {case}')
+        run_qvinaw(pp.qvinaw_exe, rec_qt, lig_qt, num_poses, rmsd_tol,
+                   case_out_dir)
+        run_state = update_pickle(run_state_pickle, case=case, program='QVINAW')
+    else:
+        print(f'Skipping QVINAW on {case} as already computed')
 
-    # print(f'Running SMINA on {case}')
-    # run_smina(cmn.smina_exe, rec_qt, lig_qt, num_poses, rmsd_tol,
-    #           case_out_dir)
+    # Run SMINA
+    if not run_state[case]['SMINA']:
+        print(f'Running SMINA on {case}')
+        run_smina(pp.smina_exe, rec_qt, lig_qt, num_poses, rmsd_tol,
+                  case_out_dir)
+        run_state = update_pickle(run_state_pickle, case=case, program='SMINA')
+    else:
+        print(f'Skipping SMINA on {case} as already computed')
 
+    # ==== Run GNINA
     # todo: gnina without cnn rescoring? both?
-    # print(f'Running GNINA on {case}')
-    # run_gnina_no_cnn(cmn.gnina_exe, rec_qt, lig_qt, num_poses, rmsd_tol,
-    #                  case_out_dir)
+    if not run_state[case]['GNINA']:
+        print(f'Running GNINA on {case}')
+        run_gnina_no_cnn(pp.gnina_exe, rec_qt, lig_qt, num_poses, rmsd_tol,
+                         case_out_dir)
+        run_state = update_pickle(run_state_pickle, case=case, program='GNINA')
+    else:
+        print(f'Skipping GNINA on {case} as already computed')
 
+    # ==== Run AUTODOCK4
     # todo: what about autodock4-gpu ?
-    print(f'Running AUTODOCK4 on {case}')
-    run_ad4(cmn.python_exe, cmn.ad4_exe, cmn.ad4_path, cmn.adtools_dir,
-            cmn.babel_path, lig_pdb, num_poses, rmsd_tol, case_out_dir)
-
+    if not run_state[case]['AD4']:
+        print(f'Running AD4 on {case}')
+        run_ad4(pp.python_exe, pp.ad4_exe, pp.ad4_path, pp.adtools_dir,
+                pp.babel_path, lig_pdb, num_poses, rmsd_tol, case_out_dir)
+        run_state = update_pickle(run_state_pickle, case=case, program='AD4')
+    else:
+        print(f'Skipping AD4 on {case} as already computed')
 # %%
 # =============================================================================
 # DOCK6

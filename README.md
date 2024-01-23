@@ -1,35 +1,17 @@
-[![Project generated with PyScaffold](https://img.shields.io/badge/-PyScaffold-005CA0?logo=pyscaffold)](https://pyscaffold.org/)
-<!-- These are examples of badges you might also want to add to your README. Update the URLs accordingly.
-[![Built Status](https://api.cirrus-ci.com/github/<USER>/stdock.svg?branch=main)](https://cirrus-ci.com/github/<USER>/stdock)
-[![ReadTheDocs](https://readthedocs.org/projects/stdock/badge/?version=latest)](https://stdock.readthedocs.io/en/stable/)
-[![Coveralls](https://img.shields.io/coveralls/github/<USER>/stdock/main.svg)](https://coveralls.io/r/<USER>/stdock)
-[![PyPI-Server](https://img.shields.io/pypi/v/stdock.svg)](https://pypi.org/project/stdock/)
-[![Conda-Forge](https://img.shields.io/conda/vn/conda-forge/stdock.svg)](https://anaconda.org/conda-forge/stdock)
-[![Monthly Downloads](https://pepy.tech/badge/stdock/month)](https://pepy.tech/project/stdock)
-[![Twitter](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&label=Twitter)](https://twitter.com/stdock)
--->
+# STDock
 
-# stdock
-
-> Add a short description here!
-
-A longer description of your project goes here...
+> From fid to binding mode: reshaping the "STD-NMR informed" docking pipelines in drug discovery 
 
 ## Installation
 
 In order to set up the necessary environment:
 
-1. review and uncomment what you need in `environment.yml` and create an environment `stdock` with the help of [conda]:
+1. Create and activate the environment `stdock` with the help of [conda]:
    ```
    conda env create -f environment.yml
-   ```
-2. activate the new environment with:
-   ```
+   
    conda activate stdock
    ```
-
-> **_NOTE:_**  The conda environment will have stdock installed in editable mode.
-> Some changes, e.g. in `setup.cfg`, might require you to run `pip install -e .` again.
 
 
 Optional and needed only once after `git clone`:

@@ -6,14 +6,12 @@ of "rmsd_tol". In case of rigid ligands, it is expected fewer conformers to be
 """
 
 import os
-import shutil
 from os.path import join, split
-
+import commons as cmn
+import proj_paths as pp
 from rdkit import Chem
 from rdkit.Chem import AllChem, rdDistGeom, rdMolAlign
 from tqdm import tqdm
-
-import commons as cmn
 
 
 def conformer_generator(input_mol2, out_traj_pdb, rmsd_cut, num_conf):
@@ -83,7 +81,7 @@ n_conformers = 100
 # =============================================================================
 
 # ==== Prepare folders hierarchy
-root_dir = cmn.proj_dir
+root_dir = pp.proj_dir
 core_set = join(root_dir, 'data/external/coreset')
 output_dir = join(
     root_dir, 'scripts/01_complexes_selection/01_conformers_generation')

@@ -10,6 +10,9 @@ import prody as prd
 import commons as cmn
 
 
+# todo: ensure correct ordering will be used in rmsd calculations (AD4 issue)
+
+
 def get_time_and_ram(log_file_path):
     string_time = 'Elapsed.*:*'
     string_ram = 'Maximum resident.*:*'
@@ -72,20 +75,23 @@ for case in cases:
             data_dict[case][program_name][sf][level]['top_dir'] = top_dir
 
             # Save log_file information
-            log_file = next(cmn.recursive_finder(f'{exploration}.log', top_dir))
+            log_file = next(
+                cmn.recursive_finder(f'{exploration}.log', top_dir))
             seconds, gb = get_time_and_ram(log_file)
             data_dict[case][program_name][sf][level]['time'] = seconds
             data_dict[case][program_name][sf][level]['ram'] = gb
 
             # Save all poses
-            poses = prd.parsePDB(next(cmn.recursive_finder('poses.pdb', top_dir)))
+            poses = prd.parsePDB(
+                next(cmn.recursive_finder('poses.pdb', top_dir)))
             data_dict[case][program_name][sf][level]['poses'] = poses
             t += poses.numCoordsets()
 
             # Save filtered poses
             poses_filtered = prd.parsePDB(
                 next(cmn.recursive_finder('poses_filtered.pdb', top_dir)))
-            data_dict[case][program_name][sf][level]['poses_filtered'] = poses_filtered
+            data_dict[case][program_name][sf][level][
+                'poses_filtered'] = poses_filtered
             f += poses_filtered.numCoordsets()
 
             # Save ordering
@@ -94,13 +100,15 @@ for case in cases:
                 data_dict[case][program_name][sf][level]['order'] = npy[0]
 
             # Save all scores
-            scores = get_scores(next(cmn.recursive_finder('scores.txt', top_dir)))
+            scores = get_scores(
+                next(cmn.recursive_finder('scores.txt', top_dir)))
             data_dict[case][program_name][sf][level]['scores'] = scores
 
             # Save filtered scores
             scores_filtered = get_scores(
                 next(cmn.recursive_finder('scores_filtered.txt', top_dir)))
-            data_dict[case][program_name][sf][level]['scores_filtered'] = scores_filtered
+            data_dict[case][program_name][sf][level][
+                'scores_filtered'] = scores_filtered
 
 os.makedirs(output_dir, exist_ok=True)
 cmn.pickle_to_file(data_dict, join(output_dir, 'data_dict.pick'))

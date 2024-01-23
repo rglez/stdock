@@ -8,21 +8,20 @@ import prody as prd
 from scipy.spatial import cKDTree as ckd
 from tqdm.auto import tqdm
 
-from programs import commons as cmn
-import root
+import commons as cmn
 
 
-class Plants(root.Program):
+class Plants(cmn.Program):
 
     def create_config(self):
         xc, yc, zc = self.get_rec_center()
-        lig_size = root.get_longest_component(self.lig_parsed)
+        lig_size = cmn.get_longest_component(self.lig_parsed)
         r = self.get_rec_axis().max() / 2 + lig_size
 
         config_paths = []
         for exhaustiveness in self.exhaustiveness_list:
             for sf in self.scoring_functions:
-                suffix = f'plants_{sf}_{root.syn[exhaustiveness]}'
+                suffix = f'plants_{sf}_{cmn.syn[exhaustiveness]}'
                 out_dir = join(self.out_dir, suffix)
                 os.makedirs(out_dir, exist_ok=True)
                 config_name = join(out_dir, 'config.conf')
@@ -60,7 +59,7 @@ class Plants(root.Program):
                                stdout=sp.PIPE,
                                stderr=sp.PIPE)
             output, errors = cmd_run.communicate()
-            root.write_string(output + errors, log_name)
+            cmn.write_string(output + errors, log_name)
 
     def get_info_dict(self):
         base_dict = cmn.recursive_defaultdict()
@@ -90,8 +89,8 @@ class Plants(root.Program):
         info_dict = self.get_info_dict()
         for id_ in tqdm(info_dict, total=len(info_dict)):
 
-            lig_parsed = root.Molecule(info_dict[id_]['lig_pose']).parse()
-            rec_parsed = root.Molecule(info_dict[id_]['rec_pose']).parse()[0]
+            lig_parsed = cmn.Molecule(info_dict[id_]['lig_pose']).parse()
+            rec_parsed = cmn.Molecule(info_dict[id_]['rec_pose']).parse()[0]
             rec_kdt = ckd(rec_parsed.getCoords())
 
             filtered_indices = []
@@ -110,7 +109,7 @@ class Plants(root.Program):
             filtered_scores = scores[filtered_indices]
             filtered_scores.to_string(join(out_dir, 'scores_filtered.txt'))
 
-            lig_ens = root.Molecule(info_dict[id_]['lig_pose']).get_ensemble()
+            lig_ens = cmn.Molecule(info_dict[id_]['lig_pose']).get_ensemble()
             prd.writePDB(join(out_dir, 'poses.pdb'), lig_ens)
 
             lig_filtered = prd.Ensemble()

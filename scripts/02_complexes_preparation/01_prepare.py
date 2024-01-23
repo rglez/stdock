@@ -3,7 +3,6 @@
 Prepares ligand and receptor molecules using Autodock Tools scripts
 """
 import os
-import shutil
 from collections import defaultdict
 from os.path import basename, join, split
 
@@ -12,7 +11,7 @@ import numpy_indexed as npi
 import prody as prd
 
 import commons as cmn
-import root
+import proj_paths as pp
 
 
 def get_ordering(lig_pdb_path, lig_pdbqt_path):
@@ -28,7 +27,7 @@ def get_ordering(lig_pdb_path, lig_pdbqt_path):
         Saves the ordering in the "qt_order.npy" file
     """
     parsed_pdb = prd.parsePDB(lig_pdb_path)
-    parsed_qt = root.Molecule(lig_pdbqt_path).parse()[0]
+    parsed_qt = cmn.Molecule(lig_pdbqt_path).parse()[0]
     order = npi.indices(parsed_qt.getCoords(), parsed_pdb.getCoords())
     out_name = join(split(lig_pdb_path)[0], 'qt_order')
     np.save(out_name, order)
@@ -61,7 +60,7 @@ class Preparator:
         lig_base = basename(self.lig_path)
         lig_ext = lig_base.split('.')[-1]
         if lig_ext != 'pdb':
-            lig_parsed = root.Molecule(self.lig_path).parse()[0]
+            lig_parsed = cmn.Molecule(self.lig_path).parse()[0]
             out_lig_pdb = join(self.out_path, f'{lig_base}.pdb')
             return prd.writePDB(out_lig_pdb, lig_parsed)
         else:
@@ -125,13 +124,16 @@ class SporesPreparator(Preparator):
 
     def prepare_receptor(self):
         self.prepare_mol(self.rec_path)
+        pass
 
     def prepare_ligand(self):
         self.prepare_mol(self.lig_path)
+        pass
 
     def prepare(self):
         self.prepare_receptor()
         self.prepare_ligand()
+        pass
 
 
 class AdtPreparator(Preparator):
@@ -173,7 +175,7 @@ class AdtPreparator(Preparator):
         self.prepare_ligand()
 
         # Get order change from pdbqt conversion
-        qt_name = basename(self.lig_path) + '.pdbqt'
+        qt_name = basename(self.lig_path).split('.')[0] + '.pdbqt'
         lig_qt = join(self.out_path, qt_name)
         cmn.check_path(lig_qt)
         lig_pdb_path = self.ligand_to_pdb()
@@ -185,16 +187,16 @@ class AdtPreparator(Preparator):
 
 # %%
 # ==== Prepare folders hierarchy
-proj_dir = cmn.proj_dir
-pythonsh = cmn.pythonsh_exe
-ad_tools_dir = cmn.adtools_dir
-spores_path = cmn.spores_exe
-all_files = cmn.get_abs('data/external/coreset')
+proj_dir = pp.proj_dir
+pythonsh = pp.pythonsh_exe
+ad_tools_dir = pp.adtools_dir
+spores_path = pp.spores_exe
+all_files = join(proj_dir, 'data/external/coreset')
 
-selected_log = cmn.get_abs(
-    'scripts/01_complexes_selection/03_selection/report_selection.txt')
+selected_log = join(proj_dir,
+                    'scripts/01_complexes_selection/03_selection/report_selection.txt')
 root_dir = split(selected_log)[0]
-out_dir = cmn.get_abs('scripts/02_complexes_preparation/01_prepared_with_adt')
+out_dir = join(proj_dir, 'scripts/02_complexes_preparation/01_prepared')
 cmn.makedir_after_overwriting(out_dir)
 
 # ==== Start the preparation
@@ -207,38 +209,43 @@ with open(selected_log, 'rt') as sele:
         lig_path = splitted[1].strip()
         num_rots = int(splitted[0])
 
-        # Get all necessary file paths
+        # Create the preparation dir
         case = basename(lig_path).split('_')[1]
         case_dir_path = join(all_files, case)
-        rec_path = join(case_dir_path, f'{case}_protein.pdb')
-        rec_mol2 = join(case_dir_path, f'{case}_protein.mol2')
-        rec_parsed = prd.parsePDB(rec_path).protein
-        prd.writePDB(rec_path, rec_parsed)
-        lig_path = join(case_dir_path, f'{case}_ligand.mol2')
-        pocket_path = join(case_dir_path, f'{case}_pocket.pdb')
-
-        # Copy info to the output folder
         out_sub_dir = join(out_dir, case)
         cmn.makedir_after_overwriting(out_sub_dir)
-        shutil.copy(rec_path, out_sub_dir)
-        shutil.copy(lig_path, out_sub_dir)
-        shutil.copy(rec_mol2, out_sub_dir)
-        asr_resnums = np.unique(prd.parsePDB(pocket_path).getResnums())
+        print(f'Preparing {case}')
+
+        # Copy info into the preparation dir
+        orig_pdb = join(case_dir_path, f'{case}_protein.pdb')
+        rec_parsed = prd.parsePDB(orig_pdb).protein
+        rec_pdb = join(out_sub_dir, f'{case}_protein.pdb')
+        prd.writePDB(rec_pdb, rec_parsed)
+
+        orig_pocket = join(case_dir_path, f'{case}_pocket.pdb')
+        asr_resnums = np.unique(prd.parsePDB(orig_pocket).getResnums())
         np.save(join(out_sub_dir, 'bpocket'), asr_resnums)
+
+        orig_lig = join(case_dir_path, f'{case}_ligand.mol2')
+        lig_pdb = join(out_sub_dir, f'{case}_ligand.pdb')
+        cmn.reformat_single_x2y(orig_lig, lig_pdb)
 
         # Prepare ligand & receptor with ADT
         try:
-            adt = AdtPreparator(lig_path, rec_path, out_sub_dir,
+            adt = AdtPreparator(lig_pdb, rec_pdb, out_sub_dir,
                                 adt_path=ad_tools_dir, pythonsh=pythonsh)
+            print(f'{case} has been prepared with ADT')
         except RuntimeError:
             failed['adt'].append(case)
             print(f'\nPreparation of {case} with ADT failed')
 
         # Prepare ligand & receptor with SPORES
-        # try:
-        #     spores = SporesPreparator(lig_path, rec_path, out_sub_dir, spores_path=spores_path)
-        # except RuntimeError:
-        #     failed['spore'].append(case)
-        #     print(f'\nPreparation of {case} with SPORE failed')
+        try:
+            self = SporesPreparator(lig_pdb, rec_pdb, out_sub_dir,
+                                    spores_path=spores_path)
+            print(f'{case} has been prepared with SPORE')
+        except RuntimeError:
+            failed['spore'].append(case)
+            print(f'\nPreparation of {case} with SPORE failed')
 
         os.chdir(root_dir)

@@ -5,18 +5,18 @@ from os.path import join
 
 from tqdm import tqdm
 
-import root
+import commons as cmn
 from programs.vina import Vina
 
 
 class QvinaW(Vina):
     def get_commands(self):
         xc, yc, zc = self.get_rec_center()
-        lig_size = root.get_longest_component(self.lig_parsed)
+        lig_size = cmn.get_longest_component(self.lig_parsed)
         xs, ys, zs = self.get_rec_axis() + lig_size
         commands = []
         for exhaustiveness in self.exhaustiveness_list:
-            sub_dir = f'qvinaw_vina_{root.syn[exhaustiveness]}'
+            sub_dir = f'qvinaw_vina_{cmn.syn[exhaustiveness]}'
             out_dir = join(self.out_dir, sub_dir)
             cmd = (f'{self.exe}'
                    f' --receptor {self.rec_path}'
@@ -49,4 +49,4 @@ class QvinaW(Vina):
                                stdout=sp.PIPE,
                                stderr=sp.PIPE)
             output, errors = cmd_run.communicate()
-            root.write_string(output + errors, log_name)
+            cmn.write_string(output + errors, log_name)

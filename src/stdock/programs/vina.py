@@ -8,19 +8,18 @@ import prody as prd
 from scipy.spatial import cKDTree as ckd
 from tqdm import tqdm
 
-from programs import commons as cmn
-import root
+import commons as cmn
 
 
-class Vina(root.Program):
+class Vina(cmn.Program):
     def get_commands(self):
         xc, yc, zc = self.get_rec_center()
-        lig_size = root.get_longest_component(self.lig_parsed)
+        lig_size = cmn.get_longest_component(self.lig_parsed)
         xs, ys, zs = self.get_rec_axis() + lig_size
         commands = []
         for exhaustiveness in self.exhaustiveness_list:
             for sf in self.scoring_functions:
-                sub_dir = f'vina_{sf}_{root.syn[exhaustiveness]}'
+                sub_dir = f'vina_{sf}_{cmn.syn[exhaustiveness]}'
                 out_dir = join(self.out_dir, sub_dir)
                 cmd = (f'{self.exe}'
                        f' --receptor {self.rec_path}'
@@ -55,7 +54,7 @@ class Vina(root.Program):
                                stdout=sp.PIPE,
                                stderr=sp.PIPE)
             output, errors = cmd_run.communicate()
-            root.write_string(output + errors, log_name)
+            cmn.write_string(output + errors, log_name)
 
     def yield_filter_sort(self):
         string_score = 'REMARK VINA RESULT:.*'
@@ -74,14 +73,14 @@ class Vina(root.Program):
                     out.write(f'{i}    {x}\n')
 
             # Get all poses
-            ensemble = root.Molecule(pdbqt).get_ensemble()
+            ensemble = cmn.Molecule(pdbqt).get_ensemble()
             out_name = join(outdir, 'poses.pdb')
             prd.writePDB(out_name, ensemble)
 
             # Get filtered indices
             rec_kdt = ckd(self.rec_parsed.getCoords())
-            lig_parsed = root.Molecule(pdbqt).parse()
-            filtered_indices, filtered_ligs = root.get_filtered_indices(
+            lig_parsed = cmn.Molecule(pdbqt).parse()
+            filtered_indices, filtered_ligs = cmn.get_filtered_indices(
                 rec_kdt, lig_parsed)
 
             # Get filtered poses

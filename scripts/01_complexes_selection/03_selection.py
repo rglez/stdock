@@ -9,13 +9,14 @@ from rdkit.Chem import AllChem
 from rdkit.Chem.Draw import rdMolDraw2D
 
 import commons as cmn
+import proj_paths as pp
 
 # =============================================================================
 # Selection
 # =============================================================================
 
 # ==== Prepare folders hierarchy
-root_dir = cmn.proj_dir
+root_dir = pp.proj_dir
 topo_traj_pick = join(
     root_dir, 'scripts/01_complexes_selection/topo_traj.pick')
 out_dir = join(root_dir, 'scripts/01_complexes_selection/03_selection')

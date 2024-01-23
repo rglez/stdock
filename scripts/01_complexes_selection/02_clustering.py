@@ -4,7 +4,7 @@ Clusters the X conformers generated for each ligand in the previous step
 and then select the most mobile (more clusters) as case study.
 
 Known Issues:
-    1. pandas will produce a harmless Warning
+    1. pandas will produce a harmless Warning on "setting with copy"
     2. bitqt raises errors for cases with a single frame
 """
 
@@ -16,6 +16,7 @@ from rdkit import Chem
 from rdkit.Chem import rdMolDescriptors
 
 import commons as cmn
+import proj_paths as pp
 
 
 def get_n_rot(input_pdb):
@@ -42,7 +43,7 @@ min_clust_size = 2
 # =============================================================================
 
 # ==== Prepare folders hierarchy
-root_dir = cmn.proj_dir
+root_dir = pp.proj_dir
 conformers_dir = join(root_dir,
                       'scripts/01_complexes_selection/01_conformers_generation')
 output_dir = join(root_dir, 'scripts/01_complexes_selection/02_clustering')

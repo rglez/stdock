@@ -5,8 +5,7 @@ from os.path import join, split
 import prody as prd
 from scipy.spatial import cKDTree as ckd
 
-from programs import commons as cmn
-import root
+import commons as cmn
 from programs.vina import Vina
 
 
@@ -15,7 +14,7 @@ class Smina(Vina):
         commands = []
         for exhaustiveness in self.exhaustiveness_list:
             for sf in self.scoring_functions:
-                sub_dir = f'smina_{sf}_{root.syn[exhaustiveness]}'
+                sub_dir = f'smina_{sf}_{cmn.syn[exhaustiveness]}'
                 out_dir = join(self.out_dir, sub_dir)
                 cmd = (f'{self.exe}'
                        f' --receptor {self.rec_path}'
@@ -49,14 +48,14 @@ class Smina(Vina):
                     out.write(f'{i}    {x}\n')
 
             # Get all poses
-            ensemble = root.Molecule(pdbqt).get_ensemble()
+            ensemble = cmn.Molecule(pdbqt).get_ensemble()
             out_name = join(outdir, 'poses.pdb')
             prd.writePDB(out_name, ensemble)
 
             # Get filtered indices
             rec_kdt = ckd(self.rec_parsed.getCoords())
-            lig_parsed = root.Molecule(pdbqt).parse()
-            filtered_indices, filtered_ligs = root.get_filtered_indices(
+            lig_parsed = cmn.Molecule(pdbqt).parse()
+            filtered_indices, filtered_ligs = cmn.get_filtered_indices(
                 rec_kdt, lig_parsed)
 
             # Get filtered poses

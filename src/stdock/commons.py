@@ -5,13 +5,30 @@ import pickle
 import shutil
 import subprocess as sp
 import sys
+import tempfile
 from collections import defaultdict
-from os.path import join
+from os.path import split, join
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+import prody as prd
 from matplotlib.colors import LinearSegmentedColormap
+from openbabel import pybel
+from scipy.spatial import cKDTree as ckd
+
+inf_int = sys.maxsize
+inf_float = float(inf_int)
+
+syn = {8: 'low',
+       80: 'medium',
+       800: 'high',
+       'speed1': 'high',
+       'speed2': 'medium',
+       'speed4': 'low',
+       25000: 'low',
+       250000: 'medium',
+       2500000: 'high'}
 
 
 def check_path(path, check_exist=True):
@@ -30,65 +47,6 @@ def check_path(path, check_exist=True):
             f'\nPath already exists and will not be overwritten: {path}')
 
 
-def get_abs(relative_path):
-    """
-    Get the absolute path of a sub-path relative to the project dir. This
-     function infers the project dir's absolute path from a global-defined
-     variable named proj_dir, that should coexist in the same file
-
-    Args:
-        relative_path: relative path inside the project dir
-
-    Returns:
-            the absolute path of the relative_path
-    """
-    joined = join(proj_dir, relative_path)
-    return joined
-
-
-# =============================================================================
-# Users trying to reproduce results should change parameters on this block
-# =============================================================================
-# System paths
-python_exe = '/home/roy.gonzalez-aleman/miniconda3/envs/stdock/bin/python'
-check_path(python_exe)
-babel_path = '/home/roy.gonzalez-aleman/miniconda3/bin/obabel'
-check_path(babel_path)
-
-# AutoDock4 paths
-ad4_root = '/home/roy.gonzalez-aleman/SoftWare/autodock/'
-check_path(ad4_root)
-ad4_path = join(ad4_root, 'x86_64Linux2/')
-check_path(ad4_path)
-pythonsh_exe = join(ad4_root, 'mgltools_x86_64Linux2_1.5.7/bin/pythonsh')
-check_path(pythonsh_exe)
-adtools_dir = join(ad4_root,
-                   'mgltools_x86_64Linux2_1.5.7/MGLToolsPckgs/AutoDockTools/Utilities24/')
-check_path(adtools_dir)
-
-# Project paths
-proj_dir = '/home/roy.gonzalez-aleman/RoyHub/stdock'
-check_path(proj_dir)
-plants_exe = get_abs('programs/PLANTS1.2_64bit')
-check_path(plants_exe)
-spores_exe = get_abs('programs/SPORES_64bit')
-check_path(spores_exe)
-vina_exe = get_abs('programs/vina_1.2.5_linux_x86_64')
-check_path(vina_exe)
-qvinaw_exe = get_abs('programs/qvina-w')
-check_path(qvinaw_exe)
-smina_exe = get_abs('programs/smina.static')
-check_path(smina_exe)
-gnina_exe = get_abs('programs/gnina')
-check_path(gnina_exe)
-ad4_exe = get_abs('programs/ad4.py')
-check_path(ad4_exe)
-# =============================================================================
-
-inf_int = sys.maxsize
-inf_float = float(inf_int)
-
-
 def shell_run(cmd_list):
     """
     Run a command in a subprocess
@@ -100,7 +58,7 @@ def shell_run(cmd_list):
         outputs: stdout
         errors: stderr
     """
-    cmd_run = sp.Popen(cmd_list, text=True, stdout=sp.PIPE, stderr=sp.PIPE)
+    cmd_run = sp.Popen(cmd_list, text=False, stdout=sp.PIPE, stderr=sp.PIPE)
     output, errors = cmd_run.communicate()
     return output, errors
 
@@ -232,3 +190,127 @@ def chop_cmap_frac(cmap, frac):
     cmap_as_array = cmap_as_array[int(frac * len(cmap_as_array)):]
     list_name = cmap.name + f"_frac{frac}"
     return LinearSegmentedColormap.from_list(list_name, cmap_as_array)
+
+
+def get_filtered_indices(rec_kdt, lig_parsed):
+    filtered_indices = []
+    filtered_ligs = []
+    for i, lig_ag in enumerate(lig_parsed):
+        try:
+            lig_kdt = ckd(lig_ag.getCoords())
+            contacts = lig_kdt.query_ball_tree(rec_kdt, r=5)
+            if any(contacts):
+                filtered_indices.append(i)
+                filtered_ligs.append(lig_ag)
+        except AttributeError:
+            print(f'WARNING: Frame {i} not filtered')
+    return filtered_indices, filtered_ligs
+
+
+def write_string(string, path):
+    with open(path, 'wt') as out:
+        out.write(string)
+    return path
+
+
+def get_longest_component(parsed_mol):
+    coords = parsed_mol.getCoords()
+    mini = coords.min(axis=0)
+    maxi = coords.max(axis=0)
+    return abs((maxi - mini).max())
+
+
+def reformat_single_x2y(x_mol_path, y_mol_path):
+    x_root, x_base = split(x_mol_path)
+    y_root, y_base = split(y_mol_path)
+
+    x_format = x_base.split('.')[-1]
+    y_format = y_base.split('.')[-1]
+
+    parsed = next(pybel.readfile(x_format, x_mol_path))
+
+    parsed.write(y_format, y_mol_path)
+
+
+class Molecule:
+    def __init__(self, molecule_path):
+        self.mol_path = molecule_path
+        check_path(self.mol_path)
+
+    def parse(self):
+        root, base = split(self.mol_path)
+        extension = base.split('.')[-1]
+        rec_obj = pybel.readfile(extension, self.mol_path)
+
+        with tempfile.TemporaryDirectory() as d:
+            parsed = []
+            for i, obj in enumerate(rec_obj):
+                temp_mol = join(d, f'temp_molecule_{i}.pdb')
+                obj.write("pdb", temp_mol)
+                parsed.append(prd.parsePDB(temp_mol))
+        return parsed
+
+    def get_ensemble(self):
+        parsed = self.parse()
+        ensemble = prd.Ensemble()
+        for i, ag in enumerate(parsed):
+            try:
+                ensemble.addCoordset(ag.getCoords())
+            except AttributeError:
+                print(f'WARNING: Frame {i} not parsed.')
+                pass
+        ensemble.setAtoms(parsed[0])
+        return ensemble
+
+
+class Program:
+    def __init__(self, exe_path, rec_path, lig_path, n_poses, rmsd_tol,
+                 scoring_functions, exhaustiveness_list, odir):
+        # Program executable path
+        self.exe = check_path(exe_path)
+
+        # Receptor & Ligand parsing
+        self.rec_path = check_path(rec_path)
+        self.rec_parsed = Molecule(self.rec_path).parse()[0]
+        self.lig_path = check_path(lig_path)
+        self.lig_parsed = Molecule(self.lig_path).parse()[0]
+
+        # Gather all scoring functions
+        self.scoring_functions = scoring_functions
+
+        # Exhaustiveness
+        self.exhaustiveness_list = exhaustiveness_list
+
+        # Check numeric arguments
+        self.num_poses = check_numeric_in_range('n_poses', n_poses, int, 1,
+                                                inf_int)
+        self.rmsd_tol = check_numeric_in_range('rmsd_tol', rmsd_tol, float,
+                                               0.1, inf_float)
+        # Create output dir
+        self.out_dir = odir
+        os.makedirs(self.out_dir, exist_ok=True)
+
+        # Standardize programs' running
+        self.commands, self.config_paths = self.get_commands()
+        self.bench = ['/usr/bin/time', '-v']
+
+    def get_rec_axis(self, output_min_max=False):
+        rec_coords = self.rec_parsed.getCoords()
+        min_coords = rec_coords.min(axis=0)
+        max_coords = rec_coords.max(axis=0)
+        if output_min_max:
+            return max_coords - min_coords, min_coords, max_coords
+        return max_coords - min_coords
+
+    def get_rec_center(self):
+        rec_parsed = Molecule(self.rec_path).parse()[0]
+        return np.round(prd.calcCenter(rec_parsed), 1)
+
+    def get_commands(self):
+        raise NotImplementedError
+
+    def run_commands(self):
+        raise NotImplementedError
+
+    def yield_filter_sort(self):
+        raise NotImplementedError
