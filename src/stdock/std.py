@@ -1,6 +1,6 @@
 # Created by roy.gonzalez-aleman at 13/11/2023
 from os.path import join
-import os
+
 import matplotlib as mpl
 import numpy as np
 import pandas as pd
@@ -122,20 +122,60 @@ class STDRunner:
         self.do_epitope_mapping()
         print('Epitope mapping completed')
 
+    # todo: refactor this function
     def get_intensities(self):
+        job_type = self.config_args['integration_type']
         intensities = {}
-        for time in self.spectra:
-            d20 = self.spectra[time]['d20']
-            on_proton = Spectrum(self.spectra[time]['on'], self.regions)
-            off_proton = Spectrum(self.spectra[time]['off'], self.regions)
+        if job_type == 2:
+            for d20 in self.spectra:
+                off_proton = Spectrum(self.spectra[d20]['off'], self.regions)
+                off_integrals = off_proton.integrate()
+                off_integrals.columns = ['absolute']
 
-            on_integrals = on_proton.integrate()
-            on_integrals.columns = ['absolute']
+                if 'on' in self.spectra[d20]:
+                    on_proton = Spectrum(self.spectra[d20]['on'], self.regions)
+                    on_integrals = on_proton.integrate()
+                    on_integrals.columns = ['absolute']
+                    numerator = off_integrals - on_integrals
+                    std_intensities = numerator / off_integrals
+                    intensities.update({d20: std_intensities})
 
-            off_integrals = off_proton.integrate()
-            off_integrals.columns = ['absolute']
-            std_intensities = (off_integrals - on_integrals) / off_integrals
-            intensities.update({d20: std_intensities})
+                if 'diff' in self.spectra[d20]:
+                    diff_proton = Spectrum(self.spectra[d20]['diff'],
+                                           self.regions)
+                    diff_integrals = diff_proton.integrate()
+                    diff_integrals.columns = ['absolute']
+                    std_intensities = diff_integrals / off_integrals
+                    intensities.update({d20: std_intensities})
+
+        elif job_type == 3:
+            for lig_conc in self.spectra:
+                self.spectra.update({lig_conc: {}})
+
+                for d20 in self.spectra[lig_conc]:
+                    off_proton = Spectrum(self.spectra[d20]['off'],
+                                          self.regions)
+                    off_integrals = off_proton.integrate()
+                    off_integrals.columns = ['absolute']
+
+                    if 'on' in self.spectra[d20]:
+                        on_proton = Spectrum(self.spectra[d20]['on'],
+                                             self.regions)
+                        on_integrals = on_proton.integrate()
+                        on_integrals.columns = ['absolute']
+                        std_intensities = (
+                                                  off_integrals - on_integrals) / off_integrals
+                        intensities[lig_conc].update({d20: std_intensities})
+
+                    if 'off' in self.spectra[d20]:
+                        diff_proton = Spectrum(self.spectra[d20]['diff'],
+                                               self.regions)
+                        diff_integrals = diff_proton.integrate()
+                        diff_integrals.columns = ['absolute']
+                        std_intensities = diff_integrals / off_integrals
+                        intensities[lig_conc].update({d20: std_intensities})
+        else:
+            raise ValueError('The job type must be  2 or 3')
         return intensities
 
     def reorder_data(self):
@@ -276,4 +316,3 @@ class STDRunner:
 # valid_templates = cfg.allowed_templates
 # args = cfg.STDConfig(config_path, params, valid_templates).config_args
 # self = STDRunner(args)
-# %%

@@ -1,9 +1,8 @@
 # Created by roy.gonzalez-aleman at 13/11/2023
 import configparser
 import os
+import textwrap
 from os.path import abspath, dirname, isabs, join, normpath
-
-import numpy as np
 
 import commons as cmn
 
@@ -38,6 +37,25 @@ allowed_parameters = {
     # (On-res, off-res, spectra) tuples
     'std-spectra': None
 }
+
+error_on_off_diff = textwrap.fill(
+    '''
+    There is probably a bad labeling of arguments in the Section 
+    [std-spectra].
+
+    Either you name keys as {spectrum_type}_{saturation_time}, or 
+    as {spectrum_time}_{saturation_time}_{ligand_concentration}, where
+    spectrum_type can be one of [on, off, diff] and saturation_time and
+    ligand_concentration are integers or float values.
+
+    In case you use {spectrum_type}_{saturation_time} labeling, stdock
+    will launch the [epitope mapping] job.
+    If {spectrum_time}_{saturation_time}_{ligand_concentration} is 
+    specified, stdock will launch a [Kd determination] job after all
+    the [epitope mapping] for each ligand concentration are completed.
+
+    Both nomenclatures can not be specified together in the same config
+    file to avoid ambiguities.''', width=80)
 
 
 class Param:
@@ -163,11 +181,29 @@ class Config:
         raise NotImplementedError
 
 
+def parse_as_kd_or_epitope_job(keys, values, lenght=2):
+    if lenght not in [2, 3]:
+        raise ValueError('"lenght" value must be 2 or 3')
+
+    spectra_dict = cmn.recursive_defaultdict()
+    for i, key in enumerate(keys):
+        splitted = key.split('_')
+        if len(splitted) != lenght:
+            raise ValueError(error_on_off_diff)
+        elif lenght == 2:
+            spectra_dict[float(splitted[1])][splitted[0]] = values[i]
+        else:
+            spectra_dict[float(splitted[2])][float(splitted[1])][splitted[0]] = \
+                values[i]
+    return spectra_dict
+
+
 class STDConfig(Config):
 
     def check_constraints(self):
         self.build_dir_hierarchy()
-        self.config_args['std-spectra'] = self.check_spectra()
+        self.config_args['std-spectra'], self.config_args[
+            'integration_type'] = self.check_spectra()
         self.config_args['std-regions'] = self.check_regions()
 
     def build_dir_hierarchy(self):
@@ -185,19 +221,16 @@ class STDConfig(Config):
             self.config_obj.write(ini)
 
     def check_spectra(self):
-        spectra = list(self.config_obj['std-spectra'].keys())
-        spectra_dict = {}
-        for i, pair in enumerate(spectra):
-            on, off, d20 = map(str.strip, pair.split(','))
-            d20 = float(d20)
-            cmn.check_numeric_in_range('d20', d20, float, 0, np.inf)
-            on_present = os.path.exists(on)
-            off_present = os.path.exists(off)
+        # Extract raw keys and values & Perform path validity checks
+        keys = list(self.config_obj['std-spectra'].keys())
+        values = [x.strip() for x in
+                  list(self.config_obj['std-spectra'].values())]
+        [cmn.check_path(x) for x in values]
 
-            if not (on_present and off_present):
-                raise ValueError(f'Either {on} or {off} is not a valid path')
-            spectra_dict.update({i: {'on': on, 'off': off, 'd20': d20}})
-        return spectra_dict
+        # Infer if [Kd calculation] is requested or [Epitope mapping] only
+        L = len(keys[0].split('_'))
+        spectra_dict = parse_as_kd_or_epitope_job(keys, values, lenght=L)
+        return spectra_dict, L
 
     def check_regions(self):
         regions = list(self.config_obj['std-regions'].keys())
@@ -208,11 +241,11 @@ class STDConfig(Config):
                                      'lower': float(lower_raw)}})
         return regions_dict
 
-
-# =============================================================================
+# %%===========================================================================
 # Debugging area
 # =============================================================================
 # config_path = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/config.cfg'
 # params = allowed_parameters
 # templates = allowed_templates
 # self = STDConfig(config_path, params, templates)
+# self.config_args
