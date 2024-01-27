@@ -48,7 +48,7 @@ def run_vina(vina_exe, rec_qt, lig_qt, n_poses, rmsd_tol, out_dir):
     """
     vina_odir = join(out_dir, 'vina')
     vina_scores = ['vina', 'vinardo']
-    vina_levels = [8, 80, 800]
+    vina_levels = [8, 64, 256]
     VinaObj = Vina(vina_exe, rec_qt, lig_qt, n_poses, rmsd_tol,
                    vina_scores, vina_levels, vina_odir)
     VinaObj.run_commands()
@@ -58,7 +58,7 @@ def run_vina(vina_exe, rec_qt, lig_qt, n_poses, rmsd_tol, out_dir):
 def run_qvinaw(qvinaw_exe, rec_qt, lig_qt, n_poses, rmsd_tol, out_dir):
     qvinaw_odir = join(out_dir, 'qvinaw')
     qvinaw_scores = []
-    qvinaw_levels = [8, 80, 800]
+    qvinaw_levels = [8, 64, 256]
     QvinawObj = QvinaW(qvinaw_exe, rec_qt, lig_qt, n_poses, rmsd_tol,
                        qvinaw_scores, qvinaw_levels, qvinaw_odir)
     QvinawObj.run_commands()
@@ -67,7 +67,7 @@ def run_qvinaw(qvinaw_exe, rec_qt, lig_qt, n_poses, rmsd_tol, out_dir):
 
 def run_smina(smina_exe, rec_qt, lig_qt, n_poses, rmsd_tol, out_dir):
     smina_scores = ['vina', 'vinardo', 'dkoes_fast', 'dkoes_scoring']
-    smina_levels = [8, 80, 800]
+    smina_levels = [8, 64, 256]
     SminaObj = Smina(smina_exe, rec_qt, lig_qt, n_poses, rmsd_tol,
                      smina_scores, smina_levels, out_dir)
     SminaObj.run_commands()
@@ -79,7 +79,7 @@ def run_gnina_no_cnn(gnina_exe, rec_qt, lig_qt, n_poses, rmsd_tol, out_dir):
     gnina_scores = ['ad4_scoring', 'default']
     # 'dkoes_fast', 'dkoes_scoring', 'dkoes_scoring_old', 'vina', 'vinardo'
     # should all give the same results as smina
-    gnina_levels = [8, 80, 800]
+    gnina_levels = [8, 64, 256]
     GninaObj = Gnina(gnina_exe, rec_qt, lig_qt, n_poses, rmsd_tol,
                      gnina_scores, gnina_levels, gnina_odir)
     GninaObj.run_commands()

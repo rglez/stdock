@@ -21,8 +21,8 @@ inf_int = sys.maxsize
 inf_float = float(inf_int)
 
 syn = {8: 'low',
-       80: 'medium',
-       800: 'high',
+       64: 'medium',
+       256: 'high',
        'speed1': 'high',
        'speed2': 'medium',
        'speed4': 'low',

@@ -15,7 +15,7 @@ class Smina(Vina):
         for exhaustiveness in self.exhaustiveness_list:
             for sf in self.scoring_functions:
                 sub_dir = f'smina_{sf}_{cmn.syn[exhaustiveness]}'
-                out_dir = join(self.out_dir, sub_dir)
+                out_dir = join(self.out_dir, 'smina', sub_dir)
                 cmd = (f'{self.exe}'
                        f' --receptor {self.rec_path}'
                        f' --ligand {self.lig_path}'
