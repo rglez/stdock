@@ -17,6 +17,9 @@ from matplotlib.colors import LinearSegmentedColormap
 from openbabel import pybel
 from scipy.spatial import cKDTree as ckd
 
+ob_log_handler = pybel.ob.OBMessageHandler()
+ob_log_handler.SetOutputLevel(-1)
+
 inf_int = sys.maxsize
 inf_float = float(inf_int)
 
@@ -72,6 +75,7 @@ def makedir_after_overwriting(path):
     """
     shutil.rmtree(path, ignore_errors=True)
     os.makedirs(path)
+    return path
 
 
 def recursive_finder(pattern, root=os.curdir):
