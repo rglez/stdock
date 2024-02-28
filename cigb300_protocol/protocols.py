@@ -82,15 +82,19 @@ ligs_psf = sorted(ligs_psf_raw, key=sort_files)
 ligs_pdb = sorted(ligs_pdb_raw, key=sort_files)
 zipped = zip(ligs_psf, ligs_pdb)
 
-command = '/home/roy.gonzalez-aleman/SoftWare/NAMD_2.14_Linux-x86_64-multicore/namd2 +p4 {}'
-minimize_commands = []
-for complex_psf, complex_pdb in zipped:
-    index = basename(complex_psf).split('.')[0].split('_')[-1]
-    odir = join(out_dir, index)
-    cmn.makedir_after_overwriting(odir)
-    script_path = write_minimize_cmpx_tcl(complex_psf, complex_pdb, odir)
-    cmd = command.format(script_path)
-    minimize_commands.append(cmd)
+command = '/home/roy.gonzalez-aleman/SoftWare/NAMD_2.14_Linux-x86_64-multicore/namd2 +p4 {} > /dev/null'
 
-for task in tqdm(minimize_commands[1:], total=len(minimize_commands)):
+# todo: uncomment for ab initio jobs
+# minimize_commands = []
+# for complex_psf, complex_pdb in zipped:
+#     index = basename(complex_psf).split('.')[0].split('_')[-1]
+#     odir = join(out_dir, index)
+    # cmn.makedir_after_overwriting(odir)
+    # script_path = write_minimize_cmpx_tcl(complex_psf, complex_pdb, odir)
+    # cmd = command.format(script_path)
+    # minimize_commands.append(cmd)
+
+
+
+for task in tqdm(minimize_commands[487:], total=len(minimize_commands) - 487):
     os.system(task)
