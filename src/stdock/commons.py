@@ -26,9 +26,9 @@ syn = {8: 'low',
        'speed1': 'high',
        'speed2': 'medium',
        'speed4': 'low',
-       25000: 'low',
+       125000: 'low',
        250000: 'medium',
-       2500000: 'high'}
+       500000: 'high'}
 
 
 def check_path(path, check_exist=True):

@@ -1,10 +1,10 @@
-# Created by roy.gonzalez-aleman at 22/01/2024
+# Created by rglez at 22/01/2024
 from os.path import join
 
 import commons as cmn
 
 # ==== Path to the project root dir ===========================================
-proj_dir = '/home/roy.gonzalez-aleman/RoyHub/stdock'
+proj_dir = '/home/rglez/RoyHub/stdock'
 cmn.check_path(proj_dir)
 
 # ==== Project paths ==========================================================
@@ -30,7 +30,7 @@ ad4_exe = join(proj_dir, 'programs/ad4.py')
 cmn.check_path(ad4_exe)
 
 # ==== AutoDock4 paths ========================================================
-ad4_root = '/home/roy.gonzalez-aleman/SoftWare/autodock/'
+ad4_root = '/home/rglez/Software/autodock/'
 cmn.check_path(ad4_root)
 
 ad4_path = join(ad4_root, 'x86_64Linux2/')
@@ -44,8 +44,8 @@ adtools_dir = join(ad4_root,
 cmn.check_path(adtools_dir)
 
 # ==== Other paths ============================================================
-python_exe = '/home/roy.gonzalez-aleman/miniconda3/envs/stdock/bin/python'
+python_exe = '/home/rglez/anaconda3/envs/stdock/bin/python'
 cmn.check_path(python_exe)
 
-babel_path = '/home/roy.gonzalez-aleman/miniconda3/bin/obabel'
+babel_path = '/usr/bin/obabel'
 cmn.check_path(babel_path)
