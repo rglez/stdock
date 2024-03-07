@@ -2,7 +2,6 @@
 """
 Compute std_score
 """
-import os
 from os.path import basename
 
 import numpy as np
@@ -13,6 +12,24 @@ from scipy.spatial import cKDTree as ckd
 import commons as cmn
 
 epitope_str = 'EPITOPE-MAPPING*.txt'
+
+
+def get_aliphatic_hydrogens(parsed_ag):
+    # Get all bonds
+    if not parsed_ag.getBonds():
+        bonds = parsed_ag.inferBonds(set_bonds=False)
+    else:
+        bonds = parsed_ag.getBonds()
+
+    # Get indices of H bonded to C
+    aliphatic = []
+    for at1, at2 in bonds:
+        merged = f'{at1.getName()[0]}{at2.getName()[0]}'
+        if merged == 'CH':
+            aliphatic.append(at2.getIndex())
+        elif merged == 'HC':
+            aliphatic.append(at1.getIndex())
+    return aliphatic
 
 
 class STDEpitope:
@@ -107,7 +124,7 @@ class STDScorer:
     """
 
     def __init__(self, std_epitopes, topology, trajectory, multiplicity='1RXL',
-                 max_dist=6, chain_rec='R', chain_lig='L', **kwargs):
+                 max_dist=6, chain_rec='R', **kwargs):
 
         # Parse arguments
         self.epitopes = std_epitopes
@@ -115,14 +132,16 @@ class STDScorer:
         self.topology = cmn.check_path(topology)
         self.trajectory = cmn.check_path(trajectory)
         self.chain_rec = chain_rec
-        self.chain_lig = chain_lig
 
         # Parse multiplicity-dependent arguments
         self.multiplicity = check_multiplicity(multiplicity)
         if self.multiplicity == '1RXL':
             self.rec_path = cmn.check_path(kwargs['rec_path'])
-            rec_hag = cmn.Molecule(self.rec_path).parse()[0].hydrogen
+            rec = cmn.Molecule(self.rec_path).parse()[0]
+            hc = get_aliphatic_hydrogens(rec)
+            rec_hag = rec.select(f"index {' '.join([str(x) for x in hc])}")
             self.rec_htree = ckd(rec_hag.getCoords())
+        self.qt_idxs = kwargs.get('qt_indices', None)
 
         # Get scores
         self.scores = self.rescore_poses()
@@ -140,42 +159,39 @@ class STDScorer:
         for lig_conc in parsed_mappings:
             rescores.update({lig_conc: {}})
 
+            # Re-naming epitope mapping taking into account pdbqt reordering
+            matrix_labels = self.epitopes.sorted_names[lig_conc]
+            matrix_idxs = [int(x.split('_')[1]) - 1 for x in matrix_labels]
+            matrix_serial_int = npi.indices(self.qt_idxs, matrix_idxs) + 1
+            matrix_serial_str = [str(x) for x in matrix_serial_int]
+            matrix_labels = [f'{matrix_labels[i].split("_")[0]}_{x}'
+                             for i, x in enumerate(matrix_serial_str)]
+
+            # Parse topology & trajectory
+            topo = prd.parsePDB(self.topology)
+            traj = prd.Trajectory(self.trajectory)
+            sele_epitope = topo.select(f"serial {' '.join(matrix_serial_str)}")
+            sele_rec = topo.select(f'chain {self.chain_rec}')
+            traj.setAtoms(sele_epitope)
+            if not all([x.startswith('H') for x in sele_epitope.getNames()]):
+                raise ValueError("Problems selecting the ligand's hydrogen")
+
+            lig_atoms = traj.getAtoms()
+            lig_names_all = lig_atoms.getNames()
+            lig_serials = [str(x) for x in lig_atoms.getSerials()]
+            lig_names = ['_'.join(x) for x in zip(lig_names_all, lig_serials)]
+            lig_names = np.asarray(lig_names)
+
             # Gather std_score matrix info
-            score_matrices = self.epitopes.score_matrices
-            matrix = score_matrices[lig_conc]
+            matrix = self.epitopes.score_matrices[lig_conc]
             rows = np.arange(matrix.shape[0])
             cols_inverse = rows[::-1]
             max_score = matrix[cols_inverse, rows].sum() / 2
-            matrix_labels = self.epitopes.sorted_names[lig_conc]
-
-            # Select only ligand atoms appearing on mappings
-            mapping = parsed_mappings[lig_conc]
-            serials_mapping_str = [x.split('_')[-1] for x in mapping]
-            serials_mapping_int = [int(x) for x in serials_mapping_str]
-            indices_mapping = [x - 1 for x in serials_mapping_int]
-
-            topo = prd.parsePDB(self.topology)
-            # serials_topo = topo.select(f'chain {self.chain_lig}').getSerials()
-            # indices_topo = npi.indices(serials_topo, serials_mapping_int)
-            # serials_real = serials_topo[indices_topo]
-            traj = prd.Trajectory(self.trajectory)
-            sele_epitope = topo.select(
-                f"serial {' '.join(serials_mapping_str)}")
-            sele_rec = topo.select(f'chain {self.chain_rec}')
-
-            # Get H names correctly
-            traj.setAtoms(sele_epitope)
-            zipped = zip(topo.getNames()[indices_mapping],
-                         topo.getSerials()[indices_mapping])
-            lig_names = np.asarray([f'{x[0]}_{x[1]}' for x in zipped])
-            if not all([x.startswith('H') for x in lig_names]):
-                raise ValueError("Problems selecting the ligand's hydrogen")
 
             # Compute scores
             scores = []
             traj.reset()
             for frame in traj:
-                traj.setAtoms(sele_epitope)
                 lig_coords = frame.getCoords()
 
                 if self.multiplicity == '1RXL':
@@ -202,11 +218,11 @@ class STDScorer:
 # =============================================================================
 
 # %% 1RXL case
-# rec_path = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/stdock-CIGB300/DOCKING/lightdock_ck2_alpha.pdb'
-# input_dir = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/stdock-CIGB300-389'
+# input_dir = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/00-CASE_STUDY/HuR/M9/stdock-M9/'
 # epitopes = STDEpitope(input_dir)
-# topology = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/stdock-CIGB300-389/DOCKING/lightdock_cigb300_389.pdb'
-# trajectory = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/stdock-CIGB300-389/DOCKING/swarms.dcd'
+# topology = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/00-CASE_STUDY/HuR/M9/stdock-M9/topology.pdb'
+# trajectory = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/00-CASE_STUDY/HuR/M9/stdock-M9/trajectory.dcd'
+# rec_path = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/00-CASE_STUDY/HuR/M9/stdock-M9/receptor.pdb'
 # self = STDScorer(epitopes, topology, trajectory, rec_path=rec_path)
 
 # %% XRXL case
@@ -219,96 +235,27 @@ class STDScorer:
 
 # Workflow
 
-input_dir = '/home/roy.gonzalez-aleman/RoyHub/stdock/cigb300_protocol/04_minimize_complexes/05_stdscore/'
-epitopes = STDEpitope(input_dir)
-topo_dir = '/home/roy.gonzalez-aleman/RoyHub/stdock/cigb300_protocol/04_minimize_complexes/03_parametrize_complex/parametrized/'
-traj_dir = '/home/roy.gonzalez-aleman/RoyHub/stdock/cigb300_protocol/04_minimize_complexes/04_minimize_complex/minimized'
-
-topologies_raw = list(cmn.recursive_finder('complex_frame*pdb', topo_dir))
-sort_topologies = lambda x: int(basename(x).split('.')[0].split('_')[-1])
-topologies = sorted(topologies_raw, key=sort_topologies)
-
-trajectories_raw = list(cmn.recursive_finder('complex.dcd', traj_dir))
-sort_trajs = lambda x: int(x.split(os.sep)[-2])
-trajectories = sorted(trajectories_raw, key=sort_trajs)
-
-for i, traj in enumerate(trajectories):
-    self = STDScorer(epitopes,
-                     topologies[i],
-                     traj,
-                     multiplicity='XRXL',
-                     chain_lig='A',
-                     max_dist=7)
-    last_score = self.scores[0.5][-1]
-    if last_score < 0.5:
-        print(traj, self.scores[0.5])
-
-# =============================================================================
+# input_dir = '/home/roy.gonzalez-aleman/RoyHub/stdock/cigb300_protocol/04_minimize_complexes/05_stdscore/'
+# epitopes = STDEpitope(input_dir)
+# topo_dir = '/home/roy.gonzalez-aleman/RoyHub/stdock/cigb300_protocol/04_minimize_complexes/03_parametrize_complex/parametrized/'
+# traj_dir = '/home/roy.gonzalez-aleman/RoyHub/stdock/cigb300_protocol/04_minimize_complexes/04_minimize_complex/minimized'
 #
-# =============================================================================
-import matplotlib.pyplot as plt
-
-cmn.generic_matplotlib(width=(10, 5))
-traj_stds = ['''2.         2.         2.         2.         2.         2.
- 2.         2.         2.         2.         2.         2.
- 2.         2.         2.         2.         2.         2.
- 2.         2.         2.         2.         2.         2.
- 2.         2.         2.         2.         2.         2.
- 2.         2.         2.         2.         2.         2.
- 2.         2.         2.         2.         2.         2.
- 2.         2.         2.         2.         2.         2.
- 2.         2.         2.         2.         2.         2.
- 2.         2.         2.         2.         2.         2.
- 2.         0.39662447 0.39662447 0.39662447 0.39662447 0.39662447
- 0.39662447 0.39662447 0.39662447 0.39662447 0.40084388 0.40084388
- 0.40084388 0.40084388 0.40084388 0.40084388 0.40084388 0.40084388
- 0.40084388 0.40084388 0.40084388 0.40084388 0.40084388 0.40084388
- 0.40084388 0.40084388 0.40084388 0.40084388 0.40084388 0.40084388
- 0.40084388 0.40084388 0.40084388 0.46413502 0.46413502 0.46413502
- 0.40084388 0.40084388 0.40084388 0.40084388''',
-             """0.72151899 0.80168776 0.78059072 0.78059072 0.78059072 0.70042194
-              0.78059072 0.80168776 0.82278481 0.80168776 0.80168776 0.71729958
-              0.64135021 0.59915612 0.59915612 0.69620253 0.73839662 0.82278481
-              0.74261603 0.74261603 0.74261603 0.74261603 0.74261603 0.79746835
-              0.73417722 0.65822785 0.57805907 0.53586498 0.47257384 0.47257384
-              0.47257384 0.53586498 0.47257384 0.39662447 0.39662447 0.40084388
-              0.40084388 0.40084388 0.37974684 0.35443038 0.45147679 0.45147679
-              0.47257384 0.47257384 0.47257384 0.47257384 0.49367089 0.48945148
-              0.56540084 0.48945148 0.41350211 0.41350211 0.41350211 0.38818565
-              0.42194093 0.42194093 0.46413502 0.46413502 0.46413502 0.46413502
-              0.46413502 0.46413502 0.46413502 0.38396624 0.31223629 0.31223629
-              0.31223629 0.3164557  0.4556962  0.53586498 0.53586498 0.53586498
-              0.53586498 0.53586498 0.39662447 0.2742616  0.2742616  0.2742616
-              0.27004219 0.27004219 0.27004219 0.2742616  0.2742616  0.2742616
-              0.2742616  0.2742616  0.2742616  0.2742616  0.27004219 0.2742616
-              0.27004219 0.2742616  0.2742616  0.2742616  0.2742616  0.2742616
-              0.2742616  0.2742616  0.2742616  0.2742616
-             """,
-             """0.4092827  0.38818565 0.4092827  0.4092827  0.43037975 0.51054852
-              0.51054852 0.51054852 0.51054852 0.48945148 0.41772152 0.41772152
-              0.41772152 0.41772152 0.49367089 0.41772152 0.41772152 0.43881857
-              0.43881857 0.51476793 0.51476793 0.51476793 0.51898734 0.51898734
-              0.43459916 0.43459916 0.43459916 0.43881857 0.43881857 0.43881857
-              0.41772152 0.41772152 0.41772152 0.41350211 0.41350211 0.41350211
-              0.41772152 0.41772152 0.41772152 0.42194093 0.42194093 0.42194093
-              0.34177215 0.42194093 0.42194093 0.42194093 0.42194093 0.42194093
-              0.34177215 0.42194093 0.42194093 0.42194093 0.42194093 0.42194093
-              0.34177215 0.34177215 0.32067511 0.40084388 0.3164557  0.3164557
-              0.32067511 0.32067511 0.32067511 0.32067511 0.32067511 0.32067511
-              0.32067511 0.32067511 0.32067511 0.32067511 0.32067511 0.32067511
-              0.32067511 0.32067511 0.32067511 0.32067511 0.32067511 0.32067511
-              0.32067511 0.32067511 0.32067511 0.32067511 0.32067511 0.32067511
-              0.32067511 0.3164557  0.32067511 0.32067511 0.32067511 0.32067511
-              0.32067511 0.3164557  0.3164557  0.3164557  0.3164557  0.3164557
-              0.3164557  0.32067511 0.3164557  0.32067511"""
-             ]
-
-y_points = []
-for x in traj_stds:
-    points = [float(x) for x in x.split()]
-    y_points.append(points)
-    plt.plot(points, lw=1, marker='.', ms=10)
-plt.ylabel('STDScore', weight='bold')
-plt.xlabel('Minim Step', weight='bold')
-plt.savefig('std_trajs')
-plt.close()
+# topologies_raw = list(cmn.recursive_finder('complex_frame*pdb', topo_dir))
+# sort_topologies = lambda x: int(basename(x).split('.')[0].split('_')[-1])
+# topologies = sorted(topologies_raw, key=sort_topologies)
+#
+# trajectories_raw = list(cmn.recursive_finder('complex.dcd', traj_dir))
+# sort_trajs = lambda x: int(x.split(os.sep)[-2])
+# trajectories = sorted(trajectories_raw, key=sort_trajs)
+#
+# for i, traj in enumerate(trajectories):
+#     self = STDScorer(epitopes,
+#                      topologies[i],
+#                      traj,
+#                      multiplicity='XRXL',
+#                      chain_lig='A',
+#                      max_dist=7)
+#     last_score = self.scores[0.5][-1]
+#     if last_score < 0.5:
+#         print(traj, self.scores[0.5])
+#
