@@ -14,8 +14,8 @@ allowed_templates = {
     'map-from-spectra':
         {'generals', 'std-regions', 'std-spectra'},
 
-    'map-from-values-then-dock':
-        {},
+    'map-from-values-then-dock-small':
+        {'generals', 'std-epitope', 'docking-small'},
 
     'map-from-spectra-then-dock-small':
         {'generals', 'std-regions', 'std-spectra', 'docking-small'},
@@ -34,16 +34,19 @@ allowed_parameters = {
     'generals': {
         'output_dir': {'dtype': 'path', 'check_exist': False}},
 
-    # STD-NMR-related parameters
+    # STD-NMR integral regions parameters
     'std-regions': None,
 
     # (On-res, off-res, spectra) tuples
     'std-spectra': None,
 
+    # STD-NMR epitope mapping parameters
+    'std-epitope': None,
+
     # VINADocking-related parameters
     'docking-small': {
-        'receptor_pdbqt': {'dtype': 'path', 'check_exist': True},
-        'ligand_pdbqt': {'dtype': 'path', 'check_exist': True},
+        'receptor_pdb': {'dtype': 'path', 'check_exist': True},
+        'ligand_pdb': {'dtype': 'path', 'check_exist': True},
         'num_poses': {'dtype': int, 'min': 1, 'max': cmn.inf_int},
         'rmsd_tolerance': {'dtype': float, 'min': 0.01, 'max': cmn.inf_float},
         'exhaustiveness': {'dtype': int, 'min': 1, 'max': cmn.inf_int}},
@@ -139,7 +142,8 @@ class Config:
     def check_missing_keys(self):
         current_template = self.legal_templates[self.template].copy()
         current_params = self.legal_params
-        [current_template.remove(x) for x in self.keyless_sections]
+        [current_template.remove(x) for x in self.keyless_sections if
+         x in current_template]
 
         for section in current_template:
             config_file_keys = list(self.config_obj[section].keys())
@@ -154,7 +158,8 @@ class Config:
 
         config_dir = self.config_dir
         parsed_sections = self.config_obj.sections().copy()
-        [parsed_sections.remove(x) for x in self.keyless_sections]
+        [parsed_sections.remove(x) for x in self.keyless_sections if
+         x in parsed_sections]
 
         for section in parsed_sections:
             items = self.config_obj[section].items()
@@ -193,14 +198,21 @@ class STDConfig(Config):
     """
 
     def parse_and_check_constraints(self):
+        config_sections = self.config_obj.sections()
         # 1. Build dir hierarchy
         self.build_dir_hierarchy()
 
         # 2. Check [std-spectra] section
-        self.config_args['std-spectra'] = self.parse_spectra()
+        if 'std-spectra' in config_sections:
+            self.config_args['std-spectra'] = self.parse_spectra()
 
         # 3. Check [std-regions] section
-        self.config_args['std-regions'] = self.parse_regions()
+        if 'std-regions' in config_sections:
+            self.config_args['std-regions'] = self.parse_regions()
+
+        # 4. Check [std-epitopes] section
+        if 'std-epitope' in config_sections:
+            self.config_args['std-epitopes'] = self.parse_epitopes()
 
         # Check [docking] section
 
@@ -294,6 +306,13 @@ class STDConfig(Config):
                 raise ValueError(error_regions)
         return regions_dict
 
+    def parse_epitopes(self):
+        config = self.config_obj
+        keys = list(config['std-epitope'].keys())
+        values_raw = [float(x) for x in config['std-epitope'].values()]
+        epitope = dict(zip(keys, values_raw))
+        return epitope
+
 # %%===========================================================================
 # Debugging area
 # =============================================================================
@@ -306,6 +325,12 @@ class STDConfig(Config):
 
 # Debugging 'map-from-spectra-then-dock'
 # config_path = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/troll8.cfg'
+# params = allowed_parameters
+# templates = allowed_templates
+# self = STDConfig(config_path, params, templates)
+
+# Debugging 'map-from-values-then-dock'
+# config_path = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/00-CASE_STUDY/HuR/M9/M9.cfg'
 # params = allowed_parameters
 # templates = allowed_templates
 # self = STDConfig(config_path, params, templates)
