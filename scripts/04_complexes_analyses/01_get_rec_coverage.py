@@ -22,8 +22,6 @@ os.makedirs(top_out_dir, exist_ok=True)
 
 # ==== Synonyms dictionaries
 
-# ==== Orderings
-programs_order = ['plants', 'qvinaw', 'vina', 'smina']
 
 # ==== Start processing
 all_data = cmn.unpickle_from_file(all_data_pick)
