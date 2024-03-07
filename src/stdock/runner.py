@@ -1,9 +1,10 @@
 # Created by roy.gonzalez-aleman at 13/11/2023
-from os.path import join, basename
+from os.path import join, basename, dirname
 
-import matplotlib as mpl
 import numpy as np
+import numpy_indexed as npi
 import pandas as pd
+import prody as prd
 import scipy.optimize as opt
 from bruker.api.topspin import Topspin
 from bruker.data.nmr import *
@@ -44,31 +45,6 @@ def get_optimized_params(fit_func, x_data, y_data):
     """
     fit_info = opt.curve_fit(fit_func, x_data, y_data, maxfev=50000)
     return fit_info[0]
-
-
-def generic_matplotlib():
-    """
-    Set generic values for matplotlib-generated plots
-    """
-    mpl.rc('figure', figsize=[12, 8], dpi=300)
-    mpl.rc('xtick', direction='in', top=True)
-    mpl.rc('xtick.major', top=False, )
-    mpl.rc('xtick.minor', top=True, visible=True)
-    mpl.rc('ytick', direction='in', right=True)
-    mpl.rc('ytick.major', right=True, )
-    mpl.rc('ytick.minor', right=True, visible=True)
-
-    mpl.rc('axes', labelsize=24)
-    mpl.rc('lines', linewidth=12, color='k')
-    mpl.rc('font', family='monospace', size=16)
-    mpl.rc('grid', alpha=0.5, color='gray', linewidth=1, linestyle='--')
-
-
-def reset_matplotlib():
-    """
-    Reset matplotlib values to defaults
-    """
-    mpl.rcParams.update(mpl.rcParamsDefault)
 
 
 def get_integral(proton, start, end):
@@ -157,8 +133,21 @@ class STDRunner:
         """
         # Parse general arguments
         self.config_args = config_args
-        self.spectra = self.config_args['std-spectra']
-        self.regions = self.config_args['std-regions']
+
+        # Automatic conversion of pdb input files to pdbqt
+        self.config_args['ligand_pdbqt'] = cmn.pdb2pdbqt(
+            config_args['ligand_pdb'], ligand_case=True)
+
+        self.config_args['receptor_pdbqt'] = cmn.pdb2pdbqt(
+            config_args['receptor_pdb'])
+
+        # Conditional parsing of sections
+        if 'map-from-spectra' in self.config_args['template']:
+            self.spectra = self.config_args['std-spectra']
+            self.regions = self.config_args['std-regions']
+
+        if 'map-from-values' in self.config_args['template']:
+            self.epitope = self.config_args['std-epitopes']
 
         # To be filled during running
         self.intensities = None
@@ -173,20 +162,27 @@ class STDRunner:
         """
         Run STDock workflow step by step
         """
-        # 1. Get intensities by integrating regions
-        print('Starting integrations')
-        self.intensities = self.get_intensities()
-        print('Declared regions have been integrated\n')
 
-        # 2. Plot STD curves
-        self.data = self.reorder_data()
-        print('Starting to plot')
-        self.plot_data()
-        print('Plots have been produced')
+        if 'map-from-spectra' in self.config_args['template']:
+            # 1. Get intensities by integrating regions
+            print('Starting integrations')
+            self.intensities = self.get_intensities()
+            print('Declared regions have been integrated\n')
 
-        # 3. Do epitope mapping
-        self.mappings = self.get_epitope_mappings()
-        print('Epitope mapping completed')
+            # 2. Plot STD curves
+            self.data = self.reorder_data()
+            print('Starting to plot')
+            self.plot_data()
+            print('Plots have been produced')
+
+            # 3. Do epitope mapping
+            self.mappings = self.get_epitope_mappings()
+            print('Epitope mapping completed')
+
+        if 'map-from-values' in self.config_args['template']:
+            # 3. Do epitope mapping
+            self.mappings = self.epitope
+            print('Epitope mapping completed')
 
         if 'dock' in self.config_args['template']:
             # 4. Launch docking
@@ -195,13 +191,9 @@ class STDRunner:
 
             # 5. Rescore using stdscore
             input_dir = self.config_args['output_dir']
-            epitopes = STDEpitope(input_dir)
-            # poses_str = 'poses.pdb'
-            # poses_filtered = next(cmn.recursive_finder(poses_str, input_dir))
-            #
 
             if 'dock-pept' in self.config_args['template']:
-                # Prepare inputs for rescoring
+                # 5.1 Prepare inputs for rescoring
                 lig_str = f'lightdock_{basename(self.docking_obj.lig_path)}'
                 rec_str = f'lightdock_{basename(self.docking_obj.rec_path)}'
                 lig_path = next(cmn.recursive_finder(lig_str,
@@ -210,20 +202,25 @@ class STDRunner:
                                                      self.docking_obj.out_dir))
                 poses_dcd = self.docking_obj.poses_dcd
 
-                # Compute std-score
+                # 5.2 Compute std-score
+                epitopes = STDEpitope(input_dir)
                 score_obj = STDScorer(lig_path, rec_path, poses_dcd, epitopes)
                 self.std_scores = score_obj.scores
                 self.docking_scores = self.docking_obj.light_dock_scores
 
             elif 'dock-small' in self.config_args['template']:
-                rec_path = self.config_args['receptor_pdbqt']
-                # STDScorer(poses_filtered, epitopes, rec_path=rec_path)
-
+                topology, trajectory, rec_path, epitope_raw = self.pre_stdscore_small()
+                qt_indices = self.reindex_pdb_qt()
+                epitope = STDEpitope(dirname(epitope_raw))
+                score_obj = STDScorer(epitope, topology=topology,
+                                      trajectory=trajectory, rec_path=rec_path,
+                                      qt_indices=qt_indices)
+                self.std_scores = score_obj.scores
             else:
                 raise ValueError('STDScore not implemented for this template')
 
             # Save scores
-            # self.save_scores()
+            self.save_scores()
 
     def get_intensities(self):
         """
@@ -314,7 +311,7 @@ class STDRunner:
         lines = ['-']
         shapes = ['o', 'v', 's', '*', 'd']
         styles = cmn.combinator([lines, shapes, colors])
-        generic_matplotlib()
+        cmn.generic_matplotlib()
 
         # Plotting individual fitting data
         data = self.data
@@ -442,6 +439,14 @@ class STDRunner:
                     mapping.write(f'{label:>16}: {norm[i]:.2f}\n')
         return mappings
 
+    def reindex_pdb_qt(self):
+        pdb_path = self.config_args['ligand_pdb']
+        qt_path = self.config_args['ligand_pdbqt']
+        pdb_parsed = prd.parsePDB(pdb_path)
+        qt_parsed = cmn.Molecule(qt_path).parse()[0]
+        indices = npi.indices(pdb_parsed.getCoords(), qt_parsed.getCoords())
+        return indices
+
     def launch_docking(self):
         """
         Launch docking engine job using [docking] section parameters in config
@@ -487,6 +492,36 @@ class STDRunner:
         with open(out_name, 'wt') as scores:
             score_table.to_string(scores, index=False)
 
+    def pre_stdscore_small(self):
+        # find poses.pdb
+        docking_dir = self.config_args['DOCKING']
+        std_dir = self.config_args['STD']
+        poses_path = next(cmn.recursive_finder('poses.pdb', docking_dir))
+        poses_parsed = prd.parsePDB(poses_path)
+
+        # Get dcd trajectory
+        traj_path = join(dirname(docking_dir), 'trajectory.dcd')
+        prd.writeDCD(traj_path, poses_parsed)
+
+        # Get the pdb topology
+        topo_path = join(dirname(docking_dir), 'topology.pdb')
+        prd.writePDB(topo_path, poses_parsed, csets=0)
+
+        # Get the receptor_path
+        rec_pdbqt = self.config_args['receptor_pdbqt']
+        rec_parsed = cmn.Molecule(rec_pdbqt).parse()[0]
+        rec_path = join(dirname(docking_dir), 'receptor.pdb')
+        prd.writePDB(rec_path, rec_parsed)
+
+        # Get the epitope mapping path
+        epitope_path = join(std_dir, 'EPITOPE-MAPPING_0.5.txt')
+        with open(epitope_path, 'wt') as ep:
+            for key, value in self.epitope.items():
+                ep.write(f'{key} : {value}\n')
+
+        return topo_path, traj_path, rec_path, epitope_path
+
+
 # =============================================================================
 # Debugging data
 # =============================================================================
@@ -499,22 +534,14 @@ class STDRunner:
 # #### Debugging STDRunner
 import config as cfg
 
-config_paths = [
-    '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/cigb-300-389.cfg',
-    '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/cigb-300-696.cfg',
-    '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/cigb-300-752.cfg',
-    '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/cigb-300-1582.cfg',
-    '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/cigb-300-2793.cfg',
-    '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/cigb-300-4026.cfg',
-    '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/cigb-300-4253.cfg',
-    '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/cigb-300-4687.cfg',
-    '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/cigb-300-4766.cfg',
-    '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/cigb-300-4836.cfg',
-]
+config_path = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/00-CASE_STUDY/HuR/M9/M9.cfg'
 params = cfg.allowed_parameters
 valid_templates = cfg.allowed_templates
-for config_path in config_paths:
-    args = cfg.STDConfig(config_path, params, valid_templates).config_args
-    self = STDRunner(args)
-    self.run()
-    print(self.std_scores[0.5].min())
+args = cfg.STDConfig(config_path, params, valid_templates).config_args
+self = STDRunner(args)
+self.run()
+
+import matplotlib.pyplot as plt
+scores = pd.read_table('/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/00-CASE_STUDY/HuR/M9/stdock-M9/DOCKING/vina_vina_medium/scores.txt',
+                       sep='\s+', header=None)
+plt.scatter(self.std_scores[0.5], scores[1])
