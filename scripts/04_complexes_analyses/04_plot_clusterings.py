@@ -32,6 +32,7 @@ def plot_clustering(clusters, labels_ids, mappings_dir, top_x, outdir, case, typ
     top_seeds_ranks = list(it.takewhile(lambda x: x <= top_x, seeds_ranks))
     N = len(top_seeds_ranks)
     top_x_counts = df_counts[range(N)]
+    top_x_counts.fillna(0, inplace=True)
 
     # Request info for plotting
     summation_right = (top_x_counts > 0).sum(axis=1) / N * 100
@@ -40,12 +41,10 @@ def plot_clustering(clusters, labels_ids, mappings_dir, top_x, outdir, case, typ
     # ==== General formatting
     cmn.reset_matplotlib()
     cmn.generic_matplotlib(width=(3.25, 5))
-    cmap_original = plt.get_cmap('Greys')
-    cmap = cmn.chop_cmap_frac(cmap_original, 0.2)
-    cmap.set_under(color='white')
+    cmap_original = plt.get_cmap('turbo')
+    cmap = cmap_original
     color_1 = 'gray'
-    size_1 = 8
-    alpha_1 = 0.75
+    alpha_1 = 0.85
 
     # ==== Layout specifications
     fig = plt.figure(layout="constrained")
@@ -88,7 +87,7 @@ def plot_clustering(clusters, labels_ids, mappings_dir, top_x, outdir, case, typ
 
     prog_indices = df.groupby(['prog']).indices
     prog_colors = {}
-    for label in prog_indices:
+    for label in ['PLANTS', 'AD4', 'VINA', 'SMINA', 'GNINA', 'QVINAW']:
         color = bicolor[0]
         [prog_colors.update({x: color}) for x in prog_indices[label]]
         bicolor.rotate()
@@ -149,17 +148,21 @@ def plot_clustering(clusters, labels_ids, mappings_dir, top_x, outdir, case, typ
 # =============================================================================
 # User-defined parameters
 # =============================================================================
-top_dir = '/scripts/04_complexes_analyses/03_clusterings'
-mappings_dir = '/scripts/04_complexes_analyses/01_rec_coverage'
-out_dir = '/scripts/04_complexes_analyses/04_plot_clusterings'
+top_dir = './scripts/04_complexes_analyses/03_clusterings'
+mappings_dir = './scripts/04_complexes_analyses/01_rec_coverage'
+out_dir = './scripts/04_complexes_analyses/04_plot_clusterings'
 os.makedirs(out_dir, exist_ok=True)
 
-top_x = 20
+top_x = 10
 cases = [join(top_dir, case) for case in os.listdir(top_dir)]
 data_dict = cmn.recursive_defaultdict()
 
 # ==== Plot
-for case_top_dir in cases:
+# for case_top_dir in cases:
+for case_top_dir in ['./scripts/04_complexes_analyses/03_clusterings/3udh',
+                     './scripts/04_complexes_analyses/03_clusterings/3fur',
+                     './scripts/04_complexes_analyses/03_clusterings/2qbp',
+                     './scripts/04_complexes_analyses/03_clusterings/4gid']:
     case = basename(case_top_dir)
     clusters_no_super = cmn.unpickle_from_file(
         next(cmn.recursive_finder('*_nosuper*.pick', case_top_dir)))

@@ -11,9 +11,11 @@ from os.path import split, join
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import mdtraj as md
 import numpy as np
 import prody as prd
 from matplotlib.colors import LinearSegmentedColormap
+from numba import jit, prange
 from openbabel import pybel
 from scipy.spatial import cKDTree as ckd
 
@@ -314,3 +316,51 @@ class Program:
 
     def yield_filter_sort(self):
         raise NotImplementedError
+
+
+@jit(nopython=True, parallel=True)
+def rmsd_ref_vs_all(ref, array, divByN):
+    rmsds = np.zeros(len(array), dtype=float)
+    for i in prange(len(array)):
+        tar = array[i]
+        rmsds[i] = np.sqrt(((ref - tar) ** 2).sum() * divByN)
+    return rmsds
+
+
+def leader_clustering_matrix(sorted_ensemble, cutoff):
+    clusters = []
+    N = len(sorted_ensemble)
+    clustered = np.zeros(N, dtype=bool)
+    array = sorted_ensemble.getCoordsets()
+    divByN = 1.0 / array[0].shape[0]
+
+    while not clustered.all():
+        next_frame = clustered.argmin()
+        rmsd = rmsd_ref_vs_all(array[next_frame], array, divByN)
+        new_cluster = rmsd <= cutoff
+        true_clusters = np.bitwise_and(new_cluster, ~clustered)
+        clustered[new_cluster] = True
+        clusters.append(true_clusters.nonzero()[0])
+    return clusters
+
+
+def leader_clustering_traj(sorted_dcd_path, sorted_pdb_path, cutoff):
+    if sorted_dcd_path.split('.')[-1] == 'dcd':
+        trajectory = md.load(sorted_dcd_path, top=sorted_pdb_path)
+    elif sorted_dcd_path.split('.')[-1] == 'pdb':
+        trajectory = md.load(sorted_dcd_path)
+    else:
+        raise ValueError(f'Only pdb or dcd formats are available for traj')
+    trajectory.center_coordinates()
+    clusters = []
+    N = trajectory.n_frames
+    clustered = np.zeros(N, dtype=bool)
+
+    while not clustered.all():
+        next_frame = clustered.argmin()
+        rmsd = md.rmsd(trajectory, trajectory, next_frame, precentered=True)
+        new_cluster = rmsd <= cutoff
+        true_clusters = np.bitwise_and(new_cluster, ~clustered)
+        clustered[new_cluster] = True
+        clusters.append(true_clusters.nonzero()[0])
+    return clusters
