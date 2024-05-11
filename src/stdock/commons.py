@@ -85,8 +85,8 @@ def recursive_finder(pattern, root=os.curdir):
             yield os.path.join(path, filename)
 
 
-def recursive_defaultdict():
-    return defaultdict(recursive_defaultdict)
+# def recursive_defaultdict():
+#     return defaultdict(recursive_defaultdict)
 
 
 def check_file_extension(path, extension):

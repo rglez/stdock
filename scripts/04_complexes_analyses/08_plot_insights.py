@@ -3,12 +3,12 @@ import os
 from collections import deque
 from os.path import dirname, join, basename
 
+import matplotlib.colors as colors
 import pandas as pd
 from matplotlib import pyplot as plt
 from matplotlib.gridspec import GridSpec
-from matplotlib import ticker
+
 import commons as cmn
-import matplotlib.colors as colors
 
 # ==== User-specified arguments ===============================================
 insights_pickle = ('/home/roy.gonzalez-aleman/RoyHub/stdock/scripts/'
@@ -74,8 +74,8 @@ data_plot = {0: get_data('n_poses', s_functions, cases_rot),
              3: get_data('coverage', s_functions, cases_rot),
              1: get_data('n_clust_int', s_functions, cases_rot),
              4: get_data('n_clust_ext', s_functions, cases_rot),
-             2: get_data('time', s_functions, cases_rot) / 60,
-             5: get_data('ram', s_functions, cases_rot)}
+             2: get_data('ram', s_functions, cases_rot),
+             5: get_data('time', s_functions, cases_rot) / 60}
 
 # ==== General formatting
 n_cases = len(cases_rot)
@@ -83,10 +83,11 @@ n_sf = len(s_functions)
 
 cmn.reset_matplotlib()
 cmn.generic_matplotlib(width=(14, 9))
-
+plt.rc('font', family='serif')
 color_1 = 'grey'
 color_2 = 'grey'
 alpha_1 = 1
+# cmap = 'YlGnBu_r'
 cmap = 'viridis'
 
 # ==== Layout specifications
@@ -97,7 +98,6 @@ gs = GridSpec(2, 3, figure=fig, wspace=0.08, hspace=0.14)
 zero = fig.add_subplot(gs[:1, :1])
 one = fig.add_subplot(gs[:1, 1:2], sharey=zero)
 two = fig.add_subplot(gs[:1, 2:], sharey=zero)
-
 three = fig.add_subplot(gs[1:, :1])
 four = fig.add_subplot(gs[1:, 1:2], sharey=three)
 five = fig.add_subplot(gs[1:, 2:], sharey=three)
@@ -105,28 +105,31 @@ five = fig.add_subplot(gs[1:, 2:], sharey=three)
 # ==== Plotting
 poses = zero.pcolormesh(data_plot[0], cmap=cmap, edgecolors=color_1, lw=0.1,
                         norm=colors.LogNorm())
-clustin = one.pcolormesh(data_plot[1], cmap=cmap, edgecolors=color_1, lw=0.1,
+clustin = four.pcolormesh(data_plot[1] / data_plot[0] * 100, cmap=cmap,
+                          edgecolors=color_1, lw=0.1,
+                          norm=colors.LogNorm())
+timeit = five.pcolormesh(data_plot[5], cmap=cmap, edgecolors=color_1, lw=0.1,
                          norm=colors.LogNorm())
-timeit = two.pcolormesh(data_plot[2], cmap=cmap, edgecolors=color_1, lw=0.1,
-                        norm=colors.LogNorm())
-covered = three.pcolormesh(data_plot[3], cmap=cmap, edgecolors=color_1, lw=0.1,
-                           norm=colors.LogNorm())
-clustext = four.pcolormesh(data_plot[4], cmap=cmap, edgecolors=color_1, lw=0.1,
-                           norm=colors.LogNorm())
-ramit = five.pcolormesh(data_plot[5], cmap=cmap, edgecolors=color_1, lw=0.1,
-                        norm=colors.LogNorm())
+covered = three.pcolormesh(data_plot[3], cmap=cmap, edgecolors=color_1,
+                           lw=0.1, norm=colors.LogNorm())
+clustext = one.pcolormesh(data_plot[4] / data_plot[0] * 100, cmap=cmap,
+                          edgecolors=color_1, lw=0.1,
+                          norm=colors.LogNorm())
+ramit = two.pcolormesh(data_plot[2], cmap=cmap, edgecolors=color_1, lw=0.1,
+                       norm=colors.LogNorm())
 
 # ==== Labels
 four.set_xlabel('Benchmarked Complexes ID (# rot bonds)', weight='bold',
                 size=16, labelpad=12)
+
 zero.set_title('# Lig Poses', fontsize=15)
 three.set_title('Receptor Coverage [%]', fontsize=15)
-
-one.set_title('# Clusters (super)', fontsize=15)
-four.set_title('# Clusters (no-super)',  fontsize=15)
-
-two.set_title('Runtime [min]', fontsize=15)
-five.set_title('RAM [GB]', fontsize=15)
+four.set_title(r'$\frac{\#~Lig~Clusters~(super)}{\# Poses}$ [%]', fontsize=15,
+               pad=10)
+one.set_title(r'$\frac{\#~Lig~Clusters~(no~super)}{\# Poses}$ [%]',
+              fontsize=15, pad=10)
+two.set_title('RAM [GB]', fontsize=15)
+five.set_title('Runtime [min]', fontsize=15)
 
 # 2. Label indexing
 col_names = list(data_plot[0].index)
@@ -192,19 +195,12 @@ for x in [zero, one, two]:
 
 # ==== Colorbars
 cbar0 = fig.colorbar(poses, ax=zero, cmap=cmap, pad=0.01)
-cbar1 = fig.colorbar(clustin, ax=one, cmap=cmap, pad=0.01)
-cbar2 = fig.colorbar(timeit, ax=two, cmap=cmap, pad=0.01)
-
-# for cbar in [cbar0, cbar1, cbar2]:
-#     cbar.locator = ticker.MaxNLocator(nbins=5)
-#     cbar.update_ticks()
-#     cbar.formatter.set_powerlimits((0, 0))
-#     cbar.formatter.set_useMathText(True)
-
-cbar = fig.colorbar(covered, ax=three, cmap=cmap, pad=0.01)
-cbar = fig.colorbar(clustext, ax=four, cmap=cmap, pad=0.01)
-cbar = fig.colorbar(ramit, ax=five, cmap=cmap, pad=0.01)
+cbar1 = fig.colorbar(clustext, ax=one, cmap=cmap, pad=0.01)
+cbar2 = fig.colorbar(ramit, ax=two, cmap=cmap, pad=0.01)
+cbar3 = fig.colorbar(covered, ax=three, cmap=cmap, pad=0.01)
+cbar4 = fig.colorbar(clustin, ax=four, cmap=cmap, pad=0.01)
+cbar5 = fig.colorbar(timeit, ax=five, cmap=cmap, pad=0.01)
 
 # plt.show()
-plt.savefig('benchmark_test.png', bbox_inches='tight')
+plt.savefig('benchmark_info.png', bbox_inches='tight')
 plt.close()
