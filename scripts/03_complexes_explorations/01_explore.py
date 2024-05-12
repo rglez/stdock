@@ -89,7 +89,8 @@ def run_gnina_no_cnn(gnina_exe, rec_qt, lig_qt, n_poses, rmsd_tol, out_dir):
 def run_ad4(python_exe, ad4_exe, ad4_path, adt_path, babel_path, lig_pdb,
             n_poses, rmsd_tol, out_dir):
     n_poses = 2000 if n_poses > 2000 else n_poses
-    ad4_levels = {25000: 'low', 250000: 'medium', 2500000: 'high'}
+    # ad4_levels = {125000: 'low', 250000: 'medium', 500000: 'high'}
+    ad4_levels = {500000: 'high'}
     bench = ['/usr/bin/time', '-v']
     for exh in tqdm(ad4_levels, total=len(ad4_levels)):
         cmd = (
@@ -140,8 +141,8 @@ run_state_pickle = join(outputs_dir, 'run_state.pickle')
 run_state = update_pickle(run_state_pickle)
 
 # Running programs for each case
-for case in (cases := os.listdir(inputs_dir)):
-
+# for case in (cases := os.listdir(inputs_dir)):
+for case in ['2vkm', '4tmn']:
     # Build per-case hierarchy
     case_out_dir = join(outputs_dir, case)
     if not os.path.exists(case_out_dir):
@@ -157,55 +158,56 @@ for case in (cases := os.listdir(inputs_dir)):
     lig_spored = join(inputs_dir, case, f'{case}_ligand_spored.mol2')
     rec_spored = join(inputs_dir, case, f'{case}_protein_spored.mol2')
 
-    # Run PLANTS
-    if not run_state[case]['PLANTS']:
-        print(f'Running PLANTS on {case}')
-        run_plants(
-            pp.plants_exe, rec_spored, lig_spored, num_poses, rmsd_tol,
-            case_out_dir)
-        run_state = update_pickle(run_state_pickle, case=case,
-                                  program='PLANTS')
-    else:
-        print(f'Skipping PLANTS on {case} as already computed')
+    # # Run PLANTS
+    # if not run_state[case]['PLANTS']:
+    #     print(f'Running PLANTS on {case}')
+    #     run_plants(
+    #         pp.plants_exe, rec_spored, lig_spored, num_poses, rmsd_tol,
+    #         case_out_dir)
+    #     run_state = update_pickle(run_state_pickle, case=case,
+    #                               program='PLANTS')
+    # else:
+    #     print(f'Skipping PLANTS on {case} as already computed')
 
-    # Run VINA
-    if not run_state[case]['VINA']:
-        print(f'Running VINA on {case}')
-        run_vina(pp.vina_exe, rec_qt, lig_qt, num_poses, rmsd_tol,
-                 case_out_dir)
-        run_state = update_pickle(run_state_pickle, case=case, program='VINA')
-    else:
-        print(f'Skipping VINA on {case} as already computed')
-
-    # Run QVINA-W
-    if not run_state[case]['QVINAW']:
-        print(f'Running QVINAW on {case}')
-        run_qvinaw(pp.qvinaw_exe, rec_qt, lig_qt, num_poses, rmsd_tol,
-                   case_out_dir)
-        run_state = update_pickle(run_state_pickle, case=case, program='QVINAW')
-    else:
-        print(f'Skipping QVINAW on {case} as already computed')
-
-    # Run SMINA
-    if not run_state[case]['SMINA']:
-        print(f'Running SMINA on {case}')
-        run_smina(pp.smina_exe, rec_qt, lig_qt, num_poses, rmsd_tol,
-                  case_out_dir)
-        run_state = update_pickle(run_state_pickle, case=case, program='SMINA')
-    else:
-        print(f'Skipping SMINA on {case} as already computed')
-
-    # ==== Run GNINA
-    # todo: gnina without cnn rescoring? both?
-    if not run_state[case]['GNINA']:
-        print(f'Running GNINA on {case}')
-        run_gnina_no_cnn(pp.gnina_exe, rec_qt, lig_qt, num_poses, rmsd_tol,
-                         case_out_dir)
-        run_state = update_pickle(run_state_pickle, case=case, program='GNINA')
-    else:
-        print(f'Skipping GNINA on {case} as already computed')
-
-    # ==== Run AUTODOCK4
+    # # Run VINA
+    # if not run_state[case]['VINA']:
+    #     print(f'Running VINA on {case}')
+    #     run_vina(pp.vina_exe, rec_qt, lig_qt, num_poses, rmsd_tol,
+    #              case_out_dir)
+    #     run_state = update_pickle(run_state_pickle, case=case, program='VINA')
+    # else:
+    #     print(f'Skipping VINA on {case} as already computed')
+    #
+    # # Run QVINA-W
+    # if not run_state[case]['QVINAW']:
+    #     print(f'Running QVINAW on {case}')
+    #     run_qvinaw(pp.qvinaw_exe, rec_qt, lig_qt, num_poses, rmsd_tol,
+    #                case_out_dir)
+    #     run_state = update_pickle(run_state_pickle, case=case,
+    #                               program='QVINAW')
+    # else:
+    #     print(f'Skipping QVINAW on {case} as already computed')
+    #
+    # # Run SMINA
+    # if not run_state[case]['SMINA']:
+    #     print(f'Running SMINA on {case}')
+    #     run_smina(pp.smina_exe, rec_qt, lig_qt, num_poses, rmsd_tol,
+    #               case_out_dir)
+    #     run_state = update_pickle(run_state_pickle, case=case, program='SMINA')
+    # else:
+    #     print(f'Skipping SMINA on {case} as already computed')
+    #
+    # # ==== Run GNINA
+    # # todo: gnina without cnn rescoring? both?
+    # if not run_state[case]['GNINA']:
+    #     print(f'Running GNINA on {case}')
+    #     run_gnina_no_cnn(pp.gnina_exe, rec_qt, lig_qt, num_poses, rmsd_tol,
+    #                      case_out_dir)
+    #     run_state = update_pickle(run_state_pickle, case=case, program='GNINA')
+    # else:
+    #     print(f'Skipping GNINA on {case} as already computed')
+    #
+    # # ==== Run AUTODOCK4
     # todo: what about autodock4-gpu ?
     if not run_state[case]['AD4']:
         print(f'Running AD4 on {case}')

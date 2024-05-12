@@ -34,7 +34,7 @@ class Smina(Vina):
     def yield_filter_sort(self):
         string_score = 'REMARK minimizedAffinity.*'
 
-        for pdbqt in cmn.recursive_finder('*pdbqt', self.out_dir):
+        for pdbqt in cmn.recursive_finder('*pdbqt', join(self.out_dir, 'smina')):
             outdir = split(pdbqt)[0]
 
             # Get all scores

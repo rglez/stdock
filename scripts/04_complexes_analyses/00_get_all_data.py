@@ -5,7 +5,6 @@ from os.path import join
 
 import numpy as np
 import pandas as pd
-import prody as prd
 
 import commons as cmn
 
@@ -41,7 +40,8 @@ def get_scores(scores_txt_path):
 # =============================================================================
 # User-defined parameters
 # =============================================================================
-exploration_dir = 'scripts/03_complexes_explorations/explorations'
+# exploration_dir = 'scripts/03_complexes_explorations/explorations'
+exploration_dir = '/media/roy.gonzalez-aleman/Expansion/01_explored_completed/'
 output_dir = 'scripts/04_complexes_analyses/pickles'
 
 # =============================================================================
@@ -82,17 +82,14 @@ for case in cases:
             data_dict[case][program_name][sf][level]['ram'] = gb
 
             # Save all poses
-            poses = prd.parsePDB(
-                next(cmn.recursive_finder('poses.pdb', top_dir)))
+            poses = next(cmn.recursive_finder('poses.pdb', top_dir))
             data_dict[case][program_name][sf][level]['poses'] = poses
-            t += poses.numCoordsets()
 
             # Save filtered poses
-            poses_filtered = prd.parsePDB(
-                next(cmn.recursive_finder('poses_filtered.pdb', top_dir)))
+            poses_filtered = next(
+                cmn.recursive_finder('poses_filtered.pdb', top_dir))
             data_dict[case][program_name][sf][level][
                 'poses_filtered'] = poses_filtered
-            f += poses_filtered.numCoordsets()
 
             # Save ordering
             npy = list(cmn.recursive_finder('*.npy', top_dir))

@@ -1,4 +1,4 @@
-# Created by roy.gonzalez-aleman at 22/01/2024
+# Created by rglez at 22/01/2024
 from os.path import join
 
 import commons as cmn
@@ -47,5 +47,5 @@ cmn.check_path(adtools_dir)
 python_exe = '/home/roy.gonzalez-aleman/miniconda3/envs/stdock/bin/python'
 cmn.check_path(python_exe)
 
-babel_path = '/home/roy.gonzalez-aleman/miniconda3/bin/obabel'
+babel_path = '/usr/bin/obabel'
 cmn.check_path(babel_path)
