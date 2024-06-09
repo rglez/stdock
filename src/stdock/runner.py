@@ -532,16 +532,16 @@ class STDRunner:
 
 
 # #### Debugging STDRunner
-import config as cfg
-
-config_path = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/00-CASE_STUDY/HuR/M9/M9.cfg'
-params = cfg.allowed_parameters
-valid_templates = cfg.allowed_templates
-args = cfg.STDConfig(config_path, params, valid_templates).config_args
-self = STDRunner(args)
-self.run()
-
-import matplotlib.pyplot as plt
-scores = pd.read_table('/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/00-CASE_STUDY/HuR/M9/stdock-M9/DOCKING/vina_vina_medium/scores.txt',
-                       sep='\s+', header=None)
-plt.scatter(self.std_scores[0.5], scores[1])
+# import config as cfg
+#
+# config_path = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/00-CASE_STUDY/HuR/M9/M9.cfg'
+# params = cfg.allowed_parameters
+# valid_templates = cfg.allowed_templates
+# args = cfg.STDConfig(config_path, params, valid_templates).config_args
+# self = STDRunner(args)
+# self.run()
+#
+# import matplotlib.pyplot as plt
+# scores = pd.read_table('/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/00-CASE_STUDY/HuR/M9/stdock-M9/DOCKING/vina_vina_medium/scores.txt',
+#                        sep='\s+', header=None)
+# plt.scatter(self.std_scores[0.5], scores[1])

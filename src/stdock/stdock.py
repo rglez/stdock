@@ -10,10 +10,10 @@ start = time.time()
 # =============================================================================
 # Processing the configuration file
 # =============================================================================
-# if len(sys.argv) != 2:
-#     raise ValueError('\nSTDOCK syntax is: python stdock.py path-to-config-file')
-# config_path = sys.argv[1]
-config_path = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/troll8.cfg'
+if len(sys.argv) != 2:
+    raise ValueError('\nSTDOCK syntax is: python stdock.py path-to-config-file')
+config_path = sys.argv[1]
+# config_path = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/troll8.cfg'
 params = cfg.allowed_parameters
 templates = cfg.allowed_templates
 config_args = cfg.STDConfig(config_path, params, templates).config_args
