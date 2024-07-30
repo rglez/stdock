@@ -16,6 +16,8 @@ from programs.lightdock import LightDock
 from programs.vina import Vina
 from rescorer import STDEpitope, STDScorer
 
+prd.LOGGER.verbosity = 'none'
+
 
 def fit_func(x_data, std_max, k_sat):
     """
@@ -163,6 +165,7 @@ class STDRunner:
         Run STDock workflow step by step
         """
 
+        # Map from spectra
         if 'map-from-spectra' in self.config_args['template']:
             # 1. Get intensities by integrating regions
             print('Starting integrations')
@@ -179,11 +182,13 @@ class STDRunner:
             self.mappings = self.get_epitope_mappings()
             print('Epitope mapping completed')
 
+        # Map from external values
         if 'map-from-values' in self.config_args['template']:
             # 3. Do epitope mapping
             self.mappings = self.epitope
             print('Epitope mapping completed')
 
+        # Docking
         if 'dock' in self.config_args['template']:
             # 4. Launch docking
             print('Launching docking as requested in config')
@@ -216,6 +221,7 @@ class STDRunner:
                                       trajectory=trajectory, rec_path=rec_path,
                                       qt_indices=qt_indices)
                 self.std_scores = score_obj.scores
+                self.docking_scores = self.parse_docking_scores()
             else:
                 raise ValueError('STDScore not implemented for this template')
 
@@ -486,9 +492,13 @@ class STDRunner:
         score_table = pd.DataFrame()
         for lig_conc in std_scores:
             lig_scores = std_scores[lig_conc]
+            if not lig_scores.size == len(docking_scores):
+                raise ValueError(
+                    'Mismatch in number of docking_scores & std scores')
+
             score_table[f'std_score_{lig_conc}'] = lig_scores
         score_table['docking_score'] = docking_scores
-        out_name = join(self.docking_obj.out_dir, 'scores.txt')
+        out_name = join(self.docking_obj.out_dir, 'scores_all.txt')
         with open(out_name, 'wt') as scores:
             score_table.to_string(scores, index=False)
 
@@ -521,6 +531,12 @@ class STDRunner:
 
         return topo_path, traj_path, rec_path, epitope_path
 
+    def parse_docking_scores(self):
+        dock_out_dir = self.docking_obj.out_dir
+        scores_path = next(cmn.recursive_finder('scores_filtered.txt', dock_out_dir))
+        parsed = pd.read_table(scores_path, sep='\s+', header=None).T.iloc[1]
+        return np.asarray(parsed)
+
 
 # =============================================================================
 # Debugging data
@@ -530,11 +546,13 @@ class STDRunner:
 # regions = config_args['std-regions']
 # self = Spectrum(pdata_path, regions)
 
-
-# #### Debugging STDRunner
+# , total=len(self.commands)
+# =============================================================================
+# Debugging HUr
+# =============================================================================
 # import config as cfg
 #
-# config_path = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/00-CASE_STUDY/HuR/M9/M9.cfg'
+# config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/hur/map-from-values-then-dock_hur.cfg'
 # params = cfg.allowed_parameters
 # valid_templates = cfg.allowed_templates
 # args = cfg.STDConfig(config_path, params, valid_templates).config_args

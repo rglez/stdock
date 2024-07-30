@@ -10,6 +10,8 @@ from tqdm import tqdm
 
 import commons as cmn
 
+prd.LOGGER.verbosity = 'none'
+
 
 class Vina(cmn.Program):
     def get_commands(self):
@@ -41,8 +43,7 @@ class Vina(cmn.Program):
         return commands, None
 
     def run_commands(self):
-        for i, command in enumerate(
-                tqdm(self.commands, total=len(self.commands), unit='command')):
+        for i, command in enumerate(self.commands):
             odir = os.sep.join(
                 command.split('--out')[-1].strip().split(os.sep)[:-1])
             os.makedirs(odir, exist_ok=True)

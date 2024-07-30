@@ -70,9 +70,9 @@ class ADCP:
 # =============================================================================
 # Debugging area
 # =============================================================================
-adfr_path = '/home/roy.gonzalez-aleman/ADFRsuite-1.0/bin/'
-rec_pdb = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/STDCK2a-300v2/ck2_alpha.pdb'
-lig_pdb = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/STDCK2a-300v2/CIGB300_MINIM.pdb'
-out_dir = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/ADCP'
-self = ADCP(lig_pdb, rec_pdb, adfr_path, out_dir)
-self.run()
+# adfr_path = '/home/roy.gonzalez-aleman/ADFRsuite-1.0/bin/'
+# rec_pdb = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/STDCK2a-300v2/ck2_alpha.pdb'
+# lig_pdb = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/STDCK2a-300v2/CIGB300_MINIM.pdb'
+# out_dir = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/ADCP'
+# self = ADCP(lig_pdb, rec_pdb, adfr_path, out_dir)
+# self.run()

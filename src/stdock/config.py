@@ -222,7 +222,12 @@ class STDConfig(Config):
         """
         # If output_dir exists, raise
         outdir = self.config_args['output_dir']
-        os.makedirs(outdir)
+        try:
+            os.makedirs(outdir)
+        except FileExistsError:
+            raise FileExistsError(
+                f'The output directory {outdir} already exists. Please, '
+                f'choose another one, or delete the existing one.')
         for dir_name in ['STD', 'DOCKING']:
             self.config_args[dir_name] = join(outdir, dir_name)
             os.makedirs(self.config_args[dir_name])

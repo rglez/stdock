@@ -55,7 +55,7 @@ def check_path(path, check_exist=True):
 
 
 def pdb2pdbqt(pdb_path, ligand_case=False,
-              babel_path='/home/roy.gonzalez-aleman/miniconda3/bin/obabel'):
+              babel_path=shutil.which('obabel')):
     dirname, basename_raw = split(pdb_path)
     basename = join(dirname, basename_raw.split('.')[0])
 
