@@ -1,18 +1,13 @@
 # Created by roy.gonzalez-aleman at 18/11/2023
+import docking
 import numpy as np
 import numpy_indexed as npi
 import prody as prd
 from matplotlib import pyplot as plt
 from scipy.spatial import cKDTree as ckd
 
-import docking
 
 # todo: choose only aliphatic hydrogens
-
-# inputs
-pdb_path = '/home/roy.gonzalez-aleman/RoyHub/nuclear/tests/examples/data/2xnr_mini.pdb'
-crd_path = '/home/roy.gonzalez-aleman/RoyHub/nuclear/tests/examples/data/2xnr_RCXN010.crd'
-mapping = {'H42': 100, "H5''": 95, 'H41': 72, "H1'": 65, "H2'": 50, "H2''": 26}
 
 
 class STDScorer:
@@ -94,6 +89,10 @@ class STDScorer:
 # =============================================================================
 # Debugging area
 # =============================================================================
+# inputs
+pdb_path = '/home/roy.gonzalez-aleman/RoyHub/nuclear/tests/examples/data/2xnr_mini.pdb'
+crd_path = '/home/roy.gonzalez-aleman/RoyHub/nuclear/tests/examples/data/2xnr_RCXN010.crd'
+mapping = {'H42': 100, "H5''": 95, 'H41': 72, "H1'": 65, "H2'": 50, "H2''": 26}
 
 ligs = docking.CRD(crd_path).ag
 rec = prd.parsePDB(pdb_path)

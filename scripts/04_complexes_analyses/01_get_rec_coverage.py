@@ -16,7 +16,6 @@ os.makedirs(top_out_dir, exist_ok=True)
 # =============================================================================
 
 
-
 # ==== Start processing
 all_data = cmn.unpickle_from_file(all_data_pick)
 for case in all_data:

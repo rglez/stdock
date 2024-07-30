@@ -10,14 +10,19 @@ from collections import defaultdict
 from os.path import split, join
 
 import matplotlib as mpl
+
 import matplotlib.pyplot as plt
 import mdtraj as md
+
 import numpy as np
 import prody as prd
 from matplotlib.colors import LinearSegmentedColormap
 from numba import jit, prange
 from openbabel import pybel
 from scipy.spatial import cKDTree as ckd
+
+ob_log_handler = pybel.ob.OBMessageHandler()
+ob_log_handler.SetOutputLevel(-1)
 
 inf_int = sys.maxsize
 inf_float = float(inf_int)
@@ -49,6 +54,22 @@ def check_path(path, check_exist=True):
             f'\nPath already exists and will not be overwritten: {path}')
 
 
+def pdb2pdbqt(pdb_path, ligand_case=False,
+              babel_path=shutil.which('obabel')):
+    dirname, basename_raw = split(pdb_path)
+    basename = join(dirname, basename_raw.split('.')[0])
+
+    if not ligand_case:
+        cmd = (f'{babel_path} -ipdb {pdb_path} -opdbqt -xp -xh -xn -xr -O'
+               f' {basename}.pdbqt --partialcharge gasteiger')
+    else:
+        cmd = (f'{babel_path} -ipdb {pdb_path} -opdbqt -xp -xh -xn -O'
+               f' {basename}.pdbqt --partialcharge gasteiger')
+    cmd_list = cmd.split()
+    output, errors = shell_run(cmd_list)
+    return check_path(f'{basename}.pdbqt')
+
+
 def shell_run(cmd_list):
     """
     Run a command in a subprocess
@@ -74,6 +95,7 @@ def makedir_after_overwriting(path):
     """
     shutil.rmtree(path, ignore_errors=True)
     os.makedirs(path)
+    return path
 
 
 def recursive_finder(pattern, root=os.curdir):
@@ -85,8 +107,8 @@ def recursive_finder(pattern, root=os.curdir):
             yield os.path.join(path, filename)
 
 
-# def recursive_defaultdict():
-#     return defaultdict(recursive_defaultdict)
+def recursive_defaultdict():
+    return defaultdict(recursive_defaultdict)
 
 
 def check_file_extension(path, extension):
@@ -150,14 +172,28 @@ def unpickle_from_file(file_name):
     return data
 
 
-def generic_matplotlib(width):
-    plt.rcParams['figure.dpi'] = 600
-    plt.rcParams['figure.figsize'] = width
-    plt.rcParams['font.family'] = 'sans-serif'
-    plt.rcParams['axes.linewidth'] = 0.5
+def generic_matplotlib():
+    """
+    Set generic values for matplotlib-generated plots
+    """
+    mpl.rc('figure', figsize=[12, 8], dpi=600)
+    mpl.rc('xtick', direction='in', top=True)
+    mpl.rc('xtick.major', top=False, )
+    mpl.rc('xtick.minor', top=True, visible=True)
+    mpl.rc('ytick', direction='in', right=True)
+    mpl.rc('ytick.major', right=True, )
+    mpl.rc('ytick.minor', right=True, visible=True)
+
+    mpl.rc('axes', labelsize=24)
+    mpl.rc('lines', linewidth=12, color='k')
+    mpl.rc('font', family='monospace', size=16)
+    mpl.rc('grid', alpha=0.5, color='gray', linewidth=1, linestyle='--')
 
 
 def reset_matplotlib():
+    """
+    Reset matplotlib values to defaults
+    """
     mpl.rcParams.update(mpl.rcParamsDefault)
 
 

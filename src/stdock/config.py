@@ -14,14 +14,17 @@ allowed_templates = {
     'map-from-spectra':
         {'generals', 'std-regions', 'std-spectra'},
 
-    'map-from-values-then-dock':
-        {},
+    'map-from-values-then-dock-small':
+        {'generals', 'std-epitope', 'docking-small'},
 
-    'map-from-spectra-then-dock':
-        {},
+    'map-from-spectra-then-dock-small':
+        {'generals', 'std-regions', 'std-spectra', 'docking-small'},
 
-    'dock-without-map':
-        {}
+    'map-from-spectra-then-dock-pept':
+        {'generals', 'std-regions', 'std-spectra', 'docking-pept'},
+
+    # 'dock-without-map':
+    #     {}
 }
 
 #: Allowed keys in the config file (dtypes & expected values)
@@ -31,31 +34,34 @@ allowed_parameters = {
     'generals': {
         'output_dir': {'dtype': 'path', 'check_exist': False}},
 
-    # STD-NMR-related parameters
+    # STD-NMR integral regions parameters
     'std-regions': None,
 
     # (On-res, off-res, spectra) tuples
-    'std-spectra': None
+    'std-spectra': None,
+
+    # STD-NMR epitope mapping parameters
+    'std-epitope': None,
+
+    # VINADocking-related parameters
+    'docking-small': {
+        'receptor_pdb': {'dtype': 'path', 'check_exist': True},
+        'ligand_pdb': {'dtype': 'path', 'check_exist': True},
+        'num_poses': {'dtype': int, 'min': 1, 'max': cmn.inf_int},
+        'rmsd_tolerance': {'dtype': float, 'min': 0.01, 'max': cmn.inf_float},
+        'exhaustiveness': {'dtype': int, 'min': 1, 'max': cmn.inf_int}},
+
+    'docking-pept': {
+        'receptor_pdb': {'dtype': 'path', 'check_exist': True},
+        'ligand_pdb': {'dtype': 'path', 'check_exist': True},
+        'scoring_function': {'dtype': str,
+                             'values': {'cpydock', 'dfire', 'fastdfire',
+                                        'dfire2', 'dna', 'ddna',
+                                        'mj3h', 'pisa', 'sd', 'sipper', 'tobi',
+                                        'vdw'}},
+        'num_steps': {'dtype': int, 'min': 1, 'max': cmn.inf_int}
+    }
 }
-
-error_on_off_diff = textwrap.fill(
-    '''
-    There is probably a bad labeling of arguments in the Section 
-    [std-spectra].
-
-    Either you name keys as {spectrum_type}_{saturation_time}, or 
-    as {spectrum_time}_{saturation_time}_{ligand_concentration}, where
-    spectrum_type can be one of [on, off, diff] and saturation_time and
-    ligand_concentration are integers or float values.
-
-    In case you use {spectrum_type}_{saturation_time} labeling, stdock
-    will launch the [epitope mapping] job.
-    If {spectrum_time}_{saturation_time}_{ligand_concentration} is 
-    specified, stdock will launch a [Kd determination] job after all
-    the [epitope mapping] for each ligand concentration are completed.
-
-    Both nomenclatures can not be specified together in the same config
-    file to avoid ambiguities.''', width=80)
 
 
 class Param:
@@ -109,7 +115,7 @@ class Config:
         # Run checks
         self.check_missing_keys()
         self.config_args = self.check_params()
-        self.check_constraints()
+        self.parse_and_check_constraints()
         self.config_args['template'] = self.template
 
     def detect_keyless_sections(self):
@@ -136,7 +142,8 @@ class Config:
     def check_missing_keys(self):
         current_template = self.legal_templates[self.template].copy()
         current_params = self.legal_params
-        [current_template.remove(x) for x in self.keyless_sections]
+        [current_template.remove(x) for x in self.keyless_sections if
+         x in current_template]
 
         for section in current_template:
             config_file_keys = list(self.config_obj[section].keys())
@@ -151,7 +158,8 @@ class Config:
 
         config_dir = self.config_dir
         parsed_sections = self.config_obj.sections().copy()
-        [parsed_sections.remove(x) for x in self.keyless_sections]
+        [parsed_sections.remove(x) for x in self.keyless_sections if
+         x in parsed_sections]
 
         for section in parsed_sections:
             items = self.config_obj[section].items()
@@ -177,75 +185,157 @@ class Config:
 
         return config_args
 
-    def check_constraints(self):
+    def parse_and_check_constraints(self):
+        """Check for constraints in the STDock config file
+        """
         raise NotImplementedError
 
 
-def parse_as_kd_or_epitope_job(keys, values, lenght=2):
-    if lenght not in [2, 3]:
-        raise ValueError('"lenght" value must be 2 or 3')
-
-    spectra_dict = cmn.recursive_defaultdict()
-    for i, key in enumerate(keys):
-        splitted = key.split('_')
-        if len(splitted) != lenght:
-            raise ValueError(error_on_off_diff)
-        elif lenght == 2:
-            spectra_dict[float(splitted[1])][splitted[0]] = values[i]
-        else:
-            spectra_dict[float(splitted[2])][float(splitted[1])][splitted[0]] = \
-                values[i]
-    return spectra_dict
-
-
 class STDConfig(Config):
+    """
+    Specific parser for STDock's config files. It inherits from a more general
+    config parser and then perform STDock-related checkings.
+    """
 
-    def check_constraints(self):
+    def parse_and_check_constraints(self):
+        config_sections = self.config_obj.sections()
+        # 1. Build dir hierarchy
         self.build_dir_hierarchy()
-        self.config_args['std-spectra'], self.config_args[
-            'integration_type'] = self.check_spectra()
-        self.config_args['std-regions'] = self.check_regions()
+
+        # 2. Check [std-spectra] section
+        if 'std-spectra' in config_sections:
+            self.config_args['std-spectra'] = self.parse_spectra()
+
+        # 3. Check [std-regions] section
+        if 'std-regions' in config_sections:
+            self.config_args['std-regions'] = self.parse_regions()
+
+        # 4. Check [std-epitopes] section
+        if 'std-epitope' in config_sections:
+            self.config_args['std-epitopes'] = self.parse_epitopes()
+
+        # Check [docking] section
 
     def build_dir_hierarchy(self):
-        # Todo: exist_ok=False for all occurrences
-        os.makedirs(self.config_args['output_dir'], exist_ok=True)
-
+        """
+        Build STDock directory hierarchy
+        """
+        # If output_dir exists, raise
         outdir = self.config_args['output_dir']
+        try:
+            os.makedirs(outdir)
+        except FileExistsError:
+            raise FileExistsError(
+                f'The output directory {outdir} already exists. Please, '
+                f'choose another one, or delete the existing one.')
         for dir_name in ['STD', 'DOCKING']:
             self.config_args[dir_name] = join(outdir, dir_name)
-            os.makedirs(self.config_args[dir_name], exist_ok=True)
+            os.makedirs(self.config_args[dir_name])
 
         # Write the configuration file for reproducibility
-        stdock_config = join(self.config_args['output_dir'], 'stdock.config')
+        stdock_config = join(self.config_args['output_dir'], 'stdock-job.cfg')
         with open(stdock_config, 'wt') as ini:
             self.config_obj.write(ini)
 
+    def parse_spectra(self):
+        """
+        Parse the [std-spectra] section
+
+        Returns:
+            spectra_dict: a nested dict with ligand concentrations and
+                          saturation times respectively
+        """
+        error_on_off_diff = textwrap.fill(
+            '''
+            There is probably a bad labeling of arguments in the Section 
+            [std-spectra].
+
+            Keys must be named as {spectrum_type}_{saturation_time}_{ligand_concentration},
+            where spectrum_type can be one of [on, off, diff] and saturation_time and
+            ligand_concentration are integers or float values.
+
+            When more than one ligand_concentration is specified, stdock will launch a
+            [Kd determination] job after all the [Epitope mapping] for each ligand 
+            concentration are completed.
+            ''', width=80)
+
+        # Extract keys and values & Perform path validity checks
+        config = self.config_obj
+        keys = list(config['std-spectra'].keys())
+        values_raw = [x.strip() for x in list(config['std-spectra'].values())]
+        values = [cmn.check_path(x) for x in values_raw]
+
+        # Get all the spectra organized as a dict
+        spectra_dict = cmn.recursive_defaultdict()
+        for i, key in enumerate(keys):
+            splitted = key.split('_')
+            # Raise if bad labeling of keys
+            if len(splitted) != 3:
+                raise ValueError(error_on_off_diff)
+            # Update
+            type_ = splitted[0]
+            lig_conc, sat_time = map(float, splitted[2:0:-1])
+            spectra_dict[lig_conc][sat_time][type_] = values[i]
+        return spectra_dict
+
     def check_spectra(self):
-        # Extract raw keys and values & Perform path validity checks
-        keys = list(self.config_obj['std-spectra'].keys())
-        values = [x.strip() for x in
-                  list(self.config_obj['std-spectra'].values())]
-        [cmn.check_path(x) for x in values]
+        # todo: check all relative to the spectra consistency
+        pass
 
-        # Infer if [Kd calculation] is requested or [Epitope mapping] only
-        L = len(keys[0].split('_'))
-        spectra_dict = parse_as_kd_or_epitope_job(keys, values, lenght=L)
-        return spectra_dict, L
+    def parse_regions(self):
+        """
+        Parse the [std-regions] section
 
-    def check_regions(self):
-        regions = list(self.config_obj['std-regions'].keys())
+        Returns:
+            regions_dict: a dict with regions limits to integrate
+        """
+        error_regions = textwrap.fill(
+            '''
+            Integration regions in the config file must be specified as {x}_{y}_{z}
+            one-liners where x is an atomic label and y, z are the upper and lower
+            limits of the integration region respectively''', width=80)
+
+        # Extract keys and values
+        config = self.config_obj
+        keys = list(config['std-regions'].keys())
+        values_raw = list(config['std-regions'].values())
+
+        # Get all the integral regions organized as a dict
         regions_dict = {}
-        for i, entry in enumerate(regions):
-            label, upper_raw, lower_raw = entry.split(',')
-            regions_dict.update({i: {'label': label, 'upper': float(upper_raw),
-                                     'lower': float(lower_raw)}})
+        for i, key in enumerate(keys):
+            upper_raw, lower_raw = values_raw[i].split(',')
+            if (upper := float(upper_raw)) > (lower := float(lower_raw)):
+                regions_dict.update(
+                    {i: {'label': key, 'upper': upper, 'lower': lower}})
+            else:
+                raise ValueError(error_regions)
         return regions_dict
+
+    def parse_epitopes(self):
+        config = self.config_obj
+        keys = list(config['std-epitope'].keys())
+        values_raw = [float(x) for x in config['std-epitope'].values()]
+        epitope = dict(zip(keys, values_raw))
+        return epitope
 
 # %%===========================================================================
 # Debugging area
 # =============================================================================
-# config_path = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/config.cfg'
+# Debugging 'map-from-spectra'
+# config_path = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/cigb-300.cfg'
 # params = allowed_parameters
 # templates = allowed_templates
 # self = STDConfig(config_path, params, templates)
 # self.config_args
+
+# Debugging 'map-from-spectra-then-dock'
+# config_path = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/troll8.cfg'
+# params = allowed_parameters
+# templates = allowed_templates
+# self = STDConfig(config_path, params, templates)
+
+# Debugging 'map-from-values-then-dock'
+# config_path = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/00-CASE_STUDY/HuR/M9/M9.cfg'
+# params = allowed_parameters
+# templates = allowed_templates
+# self = STDConfig(config_path, params, templates)
