@@ -4,7 +4,7 @@ import os
 import textwrap
 from os.path import abspath, dirname, isabs, join, normpath
 
-import commons as cmn
+import stdock.commons as cmn
 
 #: Total number of cores
 num_cores = os.cpu_count()

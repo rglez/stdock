@@ -9,7 +9,7 @@ import numpy_indexed as npi
 import prody as prd
 from scipy.spatial import cKDTree as ckd
 
-import commons as cmn
+import stdock.commons as cmn
 
 epitope_str = 'EPITOPE-MAPPING*.txt'
 

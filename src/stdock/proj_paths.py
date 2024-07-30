@@ -1,7 +1,7 @@
 # Created by rglez at 22/01/2024
 from os.path import join
 
-import commons as cmn
+import stdock.commons as cmn
 
 # ==== Path to the project root dir ===========================================
 proj_dir = '/home/gonzalezroy/RoyHub/stdock'

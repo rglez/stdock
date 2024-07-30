@@ -10,11 +10,11 @@ from bruker.api.topspin import Topspin
 from bruker.data.nmr import *
 from matplotlib import pyplot as plt
 
-import commons as cmn
-import proj_paths as pp
-from programs.lightdock import LightDock
-from programs.vina import Vina
-from rescorer import STDEpitope, STDScorer
+import stdock.commons as cmn
+import stdock.proj_paths as pp
+from stdock.programs.lightdock import LightDock
+from stdock.programs.vina import Vina
+from stdock.rescorer import STDEpitope, STDScorer
 
 prd.LOGGER.verbosity = 'none'
 
@@ -533,10 +533,10 @@ class STDRunner:
 
     def parse_docking_scores(self):
         dock_out_dir = self.docking_obj.out_dir
-        scores_path = next(cmn.recursive_finder('scores_filtered.txt', dock_out_dir))
+        scores_path = next(
+            cmn.recursive_finder('scores_filtered.txt', dock_out_dir))
         parsed = pd.read_table(scores_path, sep='\s+', header=None).T.iloc[1]
         return np.asarray(parsed)
-
 
 # =============================================================================
 # Debugging data

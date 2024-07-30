@@ -6,9 +6,8 @@ from os.path import join, split
 
 import prody as prd
 from scipy.spatial import cKDTree as ckd
-from tqdm import tqdm
 
-import commons as cmn
+import stdock.commons as cmn
 
 prd.LOGGER.verbosity = 'none'
 

@@ -2,8 +2,8 @@
 import sys
 import time
 
-import config as cfg
-import runner
+import stdock.config as cfg
+import stdock.runner as runner
 
 
 # todo: in mapdock-values, change the name of the section [docking-small] to [docking]

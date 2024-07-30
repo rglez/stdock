@@ -10,7 +10,7 @@ import numpy as np
 import prody as prd
 from prody import parsePDB
 
-import commons as cmn
+import stdock.commons as cmn
 
 
 def run_command(command_string, log_name=None):
