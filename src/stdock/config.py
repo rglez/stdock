@@ -32,7 +32,8 @@ allowed_parameters = {
 
     # General parameters
     'generals': {
-        'output_dir': {'dtype': 'path', 'check_exist': False}},
+        'output_dir': {'dtype': 'path', 'check_exist': False},
+        'protein_conc': {'dtype': float, 'min': 0.0, 'max': cmn.inf_float}},
 
     # STD-NMR integral regions parameters
     'std-regions': None,
@@ -214,7 +215,11 @@ class STDConfig(Config):
         if 'std-epitope' in config_sections:
             self.config_args['std-epitopes'] = self.parse_epitopes()
 
-        # Check [docking] section
+        # 5. Get protein concentration in general section if specified
+        # prot_conc = self.config_obj['generals'].get('protein_conc', None)
+        # self.config_args['prot_conc'] = float(prot_conc) if prot_conc else None
+
+        # todo: Check [docking] section
 
     def build_dir_hierarchy(self):
         """
@@ -322,7 +327,7 @@ class STDConfig(Config):
 # Debugging area
 # =============================================================================
 # Debugging 'map-from-spectra'
-# config_path = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/cigb-300.cfg'
+# config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/imaging/config_kd.cfg'
 # params = allowed_parameters
 # templates = allowed_templates
 # self = STDConfig(config_path, params, templates)
