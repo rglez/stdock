@@ -2,6 +2,7 @@
 import configparser
 import os
 import textwrap
+from collections import Counter
 from os.path import abspath, dirname, isabs, join, normpath
 
 import stdock.commons as cmn
@@ -250,34 +251,79 @@ class STDConfig(Config):
             spectra_dict: a nested dict with ligand concentrations and
                           saturation times respectively
         """
-        error_on_off_diff = textwrap.fill(
-            '''
-            There is probably a bad labeling of arguments in the Section 
-            [std-spectra].
-
-            Keys must be named as {spectrum_type}_{saturation_time}_{ligand_concentration},
-            where spectrum_type can be one of [on, off, diff] and saturation_time and
-            ligand_concentration are integers or float values.
-
-            When more than one ligand_concentration is specified, stdock will launch a
-            [Kd determination] job after all the [Epitope mapping] for each ligand 
-            concentration are completed.
-            ''', width=80)
-
-        # Extract keys and values & Perform path validity checks
+        # Extract keys and values
         config = self.config_obj
         keys = list(config['std-spectra'].keys())
         values_raw = [x.strip() for x in list(config['std-spectra'].values())]
+
+        # Perform path validity checks for spectra files
         values = [cmn.check_path(x) for x in values_raw]
+
+        # Get types, times & concentrations in the [std-spectra] section
+        types, times, concs = [], [], []
+        for key in keys:
+            splitted = key.split('_')
+            if len(splitted) != 3:
+                raise ValueError(
+                    'Keys of the [std-spectra] section of the config file must'
+                    ' be labeled as [on, off or diff]_[ligand concentration]_[saturation time].'
+                    ' For example: on_0.1_0.5, off_0.1_0.5, diff_0.1_0.5')
+
+            types.append(splitted[0])
+            times.append(float(splitted[1]))
+            concs.append(float(splitted[2]))
+
+        # Check types of spectra are: on, off or diff
+        types_counts = Counter(types)
+        valid_types = ['on', 'off', 'diff']
+        types_are_valid = all([x in valid_types for x in types_counts.keys()])
+        if not types_are_valid:
+            raise ValueError(
+                f'Invalid spectrum types in the [std-spectra] of the '
+                f'config file. Valid types are: {valid_types}')
+
+        # Check only two types are present
+        if len(types_counts) != 2:
+            raise ValueError(
+                'There must be only two types of spectrum specified in the '
+                '[std-spectra] section of the config file: (on and off) OR'
+                ' (diff and off)')
+
+        # Check types number consistency
+        if len(set(types_counts.values())) != 1:
+            raise ValueError(
+                'There must be the same number of (on and off) OR (diff and off)'
+                ' spectra specified in the [std-spectra] section of the config'
+                ' file')
+
+        # Check types consistency
+        conc_times = Counter(list(zip(concs, times))).values()
+        if set(conc_times) != {2}:
+            raise ValueError(
+                'There must be two spectrum per each'
+                ' (concentration/saturation time) level')
+
+        # Check times consistency
+        if len(set(times)) < 2:
+            raise ValueError(
+                'There must be at least two different saturation times for each '
+                'ligand concentration specified')
+
+        # Check concs consistency
+        if len(set(concs)) < 1:
+            raise ValueError(
+                'There must be at least one ligand concentration specified')
+
+        if len(set(Counter(concs).values())) != 1:
+            raise ValueError(
+                'There must be the same number of spectra for each ligand '
+                'concentration specified in the [std-spectra] section of the '
+                'config file')
 
         # Get all the spectra organized as a dict
         spectra_dict = cmn.recursive_defaultdict()
         for i, key in enumerate(keys):
             splitted = key.split('_')
-            # Raise if bad labeling of keys
-            if len(splitted) != 3:
-                raise ValueError(error_on_off_diff)
-            # Update
             type_ = splitted[0]
             lig_conc, sat_time = map(float, splitted[2:0:-1])
             spectra_dict[lig_conc][sat_time][type_] = values[i]

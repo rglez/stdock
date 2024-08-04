@@ -24,11 +24,9 @@ prd.LOGGER.verbosity = 'none'
 
 
 # todo: Move the generating plots section to the end and make it optional
+# todo: Move plots and tables generation to another module
 # todo: Uncomment the plotting section in the main function
-
 # todo: Merge functions get_std0_data and get_std_af0_data
-
-# todo: Remove progress bars that takes no time, put a print instead
 
 
 def std_func(x_data, std_max, k_sat):
@@ -105,42 +103,45 @@ class STDRunner:
         # Parse general arguments
         self.config_args = config_args
 
-        # To be filled during running
         # STD data
-        self.kd = None
-        self.kd_data = None
         self.std_data = None
         self.std_af_data = None
+        self.kd = None
+        self.kd_data = None
+
         # Spectra
-        self.intensities = None
         self.regions = None
         self.spectra = None
+        self.intensities = None
+
         # Epitope mapping
         self.epitope = None
         self.mappings = None
-        self.poses = None
+
         # Docking scores
-        self.std_scores = None
+        self.poses = None
         self.docking_obj = None
         self.docking_scores = None
+        self.std_scores = None
 
     def run(self):
         """ Run STDock workflow step by step"""
-        # [WF] Map from spectra
+
+        # [WF] MAP FROM SPECTRA
         if 'map-from-spectra' in self.config_args['template']:
-            # 1. Get intensities by integrating regions
+            # Get intensities by integrating regions
             self.spectra = self.config_args['std-spectra']
             self.regions = self.config_args['std-regions']
             self.intensities = self.get_intensities()
 
-            # 2. Plot STD curves
+            # Plot STD curves
             self.std_data = self.get_std0_data()
             # self.plot_data()
 
-            # 3. Do epitope mapping
+            # Do epitope mapping
             self.mappings = self.get_epitope_mappings()
 
-            # 4. Launch Kd determination
+            # Launch Kd determination
             lig_conc = self.mappings.keys()
             if (n_conc := len(lig_conc)) > 1:
                 print(f'Multiple ({n_conc}) ligand concentrations detected.'
@@ -149,44 +150,26 @@ class STDRunner:
                 self.std_af_data = self.get_std_af0_data()
                 self.kd_data, self.kd = self.get_kds()
 
-        # Map from external values
+        # [WF] MAP FROM VALUES
         if 'map-from-values' in self.config_args['template']:
-            # 3. Do epitope mapping
-            self.config_args['ligand_pdbqt'] = cmn.pdb2pdbqt(
-                self.config_args['ligand_pdb'], ligand_case=True)
-            self.config_args['receptor_pdbqt'] = cmn.pdb2pdbqt(
-                self.config_args['receptor_pdb'])
-
+            # Do epitope mapping
             self.epitope = self.config_args['std-epitopes']
             self.mappings = self.epitope
             print('Epitope mapping completed')
 
-        # Then Dock
+        # [WF] THEN DOCK
         if 'dock' in self.config_args['template']:
-            # 4. Launch docking
+            # Convert from pdb to pdbqt
             print('Launching docking as requested in config')
+            self.config_args['ligand_pdbqt'] = cmn.pdb2pdbqt(
+                self.config_args['ligand_pdb'], ligand_case=True)
+            self.config_args['receptor_pdbqt'] = cmn.pdb2pdbqt(
+                self.config_args['receptor_pdb'])
             self.docking_obj = self.launch_docking()
 
-            # 5. Rescore using stdscore
-            input_dir = self.config_args['output_dir']
-
-            if 'dock-pept' in self.config_args['template']:
-                # 5.1 Prepare inputs for rescoring
-                lig_str = f'lightdock_{basename(self.docking_obj.lig_path)}'
-                rec_str = f'lightdock_{basename(self.docking_obj.rec_path)}'
-                lig_path = next(cmn.recursive_finder(lig_str,
-                                                     self.docking_obj.out_dir))
-                rec_path = next(cmn.recursive_finder(rec_str,
-                                                     self.docking_obj.out_dir))
-                poses_dcd = self.docking_obj.poses_dcd
-
-                # 5.2 Compute std-score
-                epitopes = STDEpitope(input_dir)
-                score_obj = STDScorer(lig_path, rec_path, poses_dcd, epitopes)
-                self.std_scores = score_obj.scores
-                self.docking_scores = self.docking_obj.light_dock_scores
-
-            elif 'dock-small' in self.config_args['template']:
+            # Docking of small molecules (ONLY CHOICE FOR PUBLIC RELEASE)
+            if 'dock-small' in self.config_args['template']:
+                self.epitope = self.mappings
                 topology, trajectory, rec_path, epitope_raw = self.pre_stdscore_small()
                 qt_indices = self.reindex_pdb_qt()
                 epitope = STDEpitope(dirname(epitope_raw))
@@ -195,6 +178,25 @@ class STDRunner:
                                       qt_indices=qt_indices)
                 self.std_scores = score_obj.scores
                 self.docking_scores = self.parse_docking_scores()
+
+            # Docking of peptides (ONLY FOR INTERNAL USE)
+            elif 'dock-pept' in self.config_args['template']:
+                # Prepare inputs for rescoring
+                lig_str = f'lightdock_{basename(self.docking_obj.lig_path)}'
+                rec_str = f'lightdock_{basename(self.docking_obj.rec_path)}'
+                lig_path = next(cmn.recursive_finder(lig_str,
+                                                     self.docking_obj.out_dir))
+                rec_path = next(cmn.recursive_finder(rec_str,
+                                                     self.docking_obj.out_dir))
+                poses_dcd = self.docking_obj.poses_dcd
+
+                # Compute std-score
+                input_dir = self.config_args['output_dir']
+                epitopes = STDEpitope(input_dir)
+                score_obj = STDScorer(lig_path, rec_path, poses_dcd, epitopes)
+                self.std_scores = score_obj.scores
+                self.docking_scores = self.docking_obj.light_dock_scores
+
             else:
                 raise ValueError('STDScore not implemented for this template')
 
@@ -242,10 +244,14 @@ class STDRunner:
         std-af data for each saturation time.
 
         Returns:
-
+            reordered_data2: dict of raw and fitted dataframes
         """
         std_data = self.std_data
         prot_concentration = self.config_args['protein_conc']
+        intensities = self.intensities
+        first_key = list(intensities.keys())[0]
+        t_sats = np.asarray(sorted(intensities[first_key]))
+        use_exponential = False if len(t_sats) == 2 else True
 
         reordered_data2 = {}
         for lig_conc in std_data:
@@ -258,23 +264,36 @@ class STDRunner:
                 t_sats = df.tsat.to_numpy()
                 stds_af = df.std_af.to_numpy()
 
-                # Fit data
-                try:
-                    std_af_max, k_sat = get_optimized_params(std_func, t_sats,
-                                                             stds_af)[0]
-                    std_af_0 = std_af_max * k_sat
-                except RuntimeError:
-                    print('Issues with fitting data. Setting values to 0')
-                    std_af_max, k_sat, std_af_0 = 0, 0, 0
-                fit_data = std_func(t_sats, std_af_max, k_sat)
+                # Fit data to exponential curve
+                if use_exponential:
+                    try:
+                        std_af_max, k_sat = \
+                            get_optimized_params(std_func, t_sats,
+                                                 stds_af)[0]
+                        std_af_0 = std_af_max * k_sat
+                    except RuntimeError:
+                        print('Issues with fitting data. Setting values to 0')
+                        std_af_max, k_sat, std_af_0 = 0, 0, 0
+                    fit_data = std_func(t_sats, std_af_max, k_sat)
+                    # Update dataframe
+                    df['std_af_fit'] = fit_data
+                    df['k_sat2'] = k_sat
+                    df['std_af_max'] = std_af_max
 
-                # Update dataframe
-                df['std_af_fit'] = fit_data
-                df['k_sat2'] = k_sat
-                df['std_af_max'] = std_af_max
+                # Use the reduced-dataset approach
+                else:
+                    t_short = min(t_sats)
+                    std_af_long = max(stds_af)
+                    std_af_short = min(stds_af)
+                    std_af_0 = (std_af_long / t_short) * np.log(
+                        std_af_long / (std_af_long - std_af_short))
                 df['std_af_0'] = std_af_0
+
                 reordered_data2[lig_conc].update({label: df})
-        print('STD-af data has been fitted')
+        if use_exponential:
+            print('STD-AF data has been fitted to an exponential curve')
+        else:
+            print('STD-AF data derived through the reduced dataset approach')
         return reordered_data2
 
     def get_std0_data(self):
@@ -284,9 +303,7 @@ class STDRunner:
 
         Returns:
             reordered_data: dict of raw and fitted dataframes
-
         """
-
         # Get hydrogen labels
         intensities = self.intensities
         first_key = list(intensities.keys())[0]
@@ -294,39 +311,54 @@ class STDRunner:
         labels = intensities[first_key][second_key].index.tolist()
 
         # Reorder data
-        columns = ['tsat', 'std', 'std_fit', 'k_sat', 'std_max', 'std_0']
         t_sats = np.asarray(sorted(intensities[first_key]))
+        use_exponential = False if len(t_sats) == 2 else True
+
         reordered_data = {}
         for lig_conc in intensities:
             reordered_data.update({lig_conc: {}})
             for label in labels:
 
                 # Create dataframe
-                df = pd.DataFrame(columns=columns)
-                df.tsat = t_sats
+                df = pd.DataFrame()
+                df['tsat'] = t_sats
                 stds = []
                 for t_sat in t_sats:
                     stds.append(
                         intensities[lig_conc][t_sat].loc[label].absolute)
                 df['std'] = stds
 
-                # Fit data
-                try:
-                    std_max, k_sat = get_optimized_params(
-                        std_func, t_sats, stds)[0]
-                    std0 = std_max * k_sat
-                except RuntimeError:
-                    print('Issues with fitting data. Setting values to 0')
-                    std_max, k_sat, std0 = 0, 0, 0
-                fit_data = std_func(t_sats, std_max, k_sat)
+                # Fit data to exponential curve
+                if use_exponential:
+                    try:
+                        std_max, k_sat = get_optimized_params(
+                            std_func, t_sats, stds)[0]
+                        std0 = std_max * k_sat
+                    except RuntimeError:
+                        print('Issues with fitting data. Setting values to 0')
+                        std_max, k_sat, std0 = 0, 0, 0
+                    fit_data = std_func(t_sats, std_max, k_sat)
+                    df['std_fit'] = fit_data
+                    df['k_sat'] = k_sat
+                    df['std_max'] = std_max
+
+                # Use the reduced-dataset approach
+                else:
+                    t_short = min(t_sats)
+                    std_long = max(stds)
+                    std_short = min(stds)
+                    std0 = (std_long / t_short) * np.log(
+                        std_long / (std_long - std_short))
 
                 # Update dataframe
-                df.std_fit = fit_data
-                df.k_sat = k_sat
-                df.std_max = std_max
-                df.std_0 = std0
+                df['std_0'] = std0
                 reordered_data[lig_conc].update({label: df})
-        print('STD data has been fitted')
+
+        if use_exponential:
+            print('STD data has been fitted to an exponential curve')
+        else:
+            print('STD data derived through the reduced dataset approach')
+
         return reordered_data
 
     def plot_data(self):
@@ -626,19 +658,20 @@ class STDRunner:
         return reordered_data, kd
 
 
-
 # =============================================================================
 # Debugging Case studies
 # =============================================================================
-# import config as cfg
-#
+import config as cfg
+
 # config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/hur/map-from-values-then-dock_hur.cfg'
 # config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/imaging/config_kd.cfg'
-#
-# params = cfg.allowed_parameters
-# valid_templates = cfg.allowed_templates
-# args = cfg.STDConfig(config_path, params, valid_templates).config_args
-# self = STDRunner(args)
+# config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/reduced_dataset/config_rd.cfg'
+config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/imaging-docking/config_kd_docking.cfg'
+
+params = cfg.allowed_parameters
+valid_templates = cfg.allowed_templates
+args = cfg.STDConfig(config_path, params, valid_templates).config_args
+self = STDRunner(args)
 # self.run()
 
 # =============================================================================

@@ -14,6 +14,20 @@ import stdock.commons as cmn
 epitope_str = 'EPITOPE-MAPPING*.txt'
 
 
+def check_multiplicity(multiplicity):
+    """
+    Check the multiplicity value provided is supported
+    Args:
+        multiplicity: 1RXL for a single receptor and multiple ligands
+                      XRXL for as many receptors as ligands
+    Returns:
+        multiplicity: the passed value if it is supported else raise
+    """
+    if multiplicity not in (multiplicities := ['1RXL', 'XRXL']):
+        raise ValueError(f'Multiplicity must be one of: {multiplicities}')
+    return multiplicity
+
+
 def get_aliphatic_hydrogens(parsed_ag):
     # Get all bonds
     if not parsed_ag.getBonds():
@@ -102,20 +116,6 @@ class STDEpitope:
                 score_matrix.append(scores)
             score_matrices.update({lig_conc: np.asarray(score_matrix)})
         return score_matrices
-
-
-def check_multiplicity(multiplicity):
-    """
-    Check the multiplicity value provided is supported
-    Args:
-        multiplicity: 1RXL for a single receptor and multiple ligands
-                      XRXL for as many receptors as ligands
-    Returns:
-        multiplicity: the passed value if it is supported else raise
-    """
-    if multiplicity not in (multiplicities := ['1RXL', 'XRXL']):
-        raise ValueError(f'Multiplicity must be one of: {multiplicities}')
-    return multiplicity
 
 
 class STDScorer:
@@ -211,7 +211,6 @@ class STDScorer:
             rescores.update({lig_conc: np.asarray(scores)})
 
         return rescores
-
 
 # =============================================================================
 # Debugging area
