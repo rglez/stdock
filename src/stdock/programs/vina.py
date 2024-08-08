@@ -78,21 +78,21 @@ class Vina(cmn.Program):
             prd.writePDB(out_name, ensemble)
 
             # Get filtered indices
-            rec_kdt = ckd(self.rec_parsed.getCoords())
-            lig_parsed = cmn.Molecule(pdbqt).parse()
-            filtered_indices, filtered_ligs = cmn.get_filtered_indices(
-                rec_kdt, lig_parsed)
+            # rec_kdt = ckd(self.rec_parsed.getCoords())
+            # lig_parsed = cmn.Molecule(pdbqt).parse()
+            # filtered_indices, filtered_ligs = cmn.get_filtered_indices(
+            #     rec_kdt, lig_parsed)
 
             # Get filtered poses
-            lig_filtered = prd.Ensemble()
-            [lig_filtered.addCoordset(x.getCoords()) for x in filtered_ligs]
-            lig_filtered.setAtoms(filtered_ligs[0])
-            prd.writePDB(join(outdir, 'poses_filtered.pdb'), lig_filtered)
+            # lig_filtered = prd.Ensemble()
+            # [lig_filtered.addCoordset(x.getCoords()) for x in filtered_ligs]
+            # lig_filtered.setAtoms(filtered_ligs[0])
+            # prd.writePDB(join(outdir, 'poses_filtered.pdb'), lig_filtered)
 
             # Get filtered scores
-            with open(join(outdir, 'scores_filtered.txt'), 'wt') as out:
-                for index in filtered_indices:
-                    out.write(f'{index}    {scores[index]}\n')
+            # with open(join(outdir, 'scores_filtered.txt'), 'wt') as out:
+            #     for index in filtered_indices:
+            #         out.write(f'{index}    {scores[index]}\n')
 
 # =============================================================================
 # Debugging area

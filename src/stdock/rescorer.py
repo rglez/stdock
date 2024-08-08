@@ -31,8 +31,10 @@ def check_multiplicity(multiplicity):
 def get_aliphatic_hydrogens(parsed_ag):
     # Get all bonds
     if not parsed_ag.getBonds():
+        print('No bonds detected in the receptor. Infering bonds.')
         bonds = parsed_ag.inferBonds(set_bonds=False)
     else:
+        print('Bonds detected in the receptor.')
         bonds = parsed_ag.getBonds()
 
     # Get indices of H bonded to C
@@ -43,6 +45,9 @@ def get_aliphatic_hydrogens(parsed_ag):
             aliphatic.append(at2.getIndex())
         elif merged == 'HC':
             aliphatic.append(at1.getIndex())
+    if not aliphatic:
+        raise ValueError(
+            'No aliphatic hydrogens detected in the receptor. Aborting.')
     return aliphatic
 
 
@@ -142,7 +147,6 @@ class STDScorer:
             rec_hag = rec.select(f"index {' '.join([str(x) for x in hc])}")
             self.rec_htree = ckd(rec_hag.getCoords())
         self.qt_idxs = kwargs.get('qt_indices', None)
-
         # Get scores
         self.scores = self.rescore_poses()
 
@@ -161,7 +165,7 @@ class STDScorer:
 
             # Re-naming epitope mapping taking into account pdbqt reordering
             matrix_labels = self.epitopes.sorted_names[lig_conc]
-            matrix_idxs = [int(x.split('_')[1]) - 1 for x in matrix_labels]
+            matrix_idxs = [int(x.split('_')[1].split('-')[0]) - 1 for x in matrix_labels]
             matrix_serial_int = npi.indices(self.qt_idxs, matrix_idxs) + 1
             matrix_serial_str = [str(x) for x in matrix_serial_int]
             matrix_labels = [f'{matrix_labels[i].split("_")[0]}_{x}'
@@ -212,6 +216,7 @@ class STDScorer:
 
         return rescores
 
+
 # =============================================================================
 # Debugging area
 # =============================================================================
@@ -258,3 +263,17 @@ class STDScorer:
 #     if last_score < 0.5:
 #         print(traj, self.scores[0.5])
 #
+
+# =============================================================================
+#
+# =============================================================================
+# topology = '/home/gonzalezroy/RoyHub/stdock/tests/paper/imaging-docking/stdock-results/topology.pdb'
+# trajectory = '/home/gonzalezroy/RoyHub/stdock/tests/paper/imaging-docking/stdock-results/trajectory.dcd'
+# std_dir = '/home/gonzalezroy/RoyHub/stdock/tests/paper/imaging-docking/stdock-results/STD'
+# epitope = STDEpitope(std_dir)
+# rec_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/imaging-docking/stdock-results/receptor.pdb'
+# qt_indices = np.asarray(
+#     [0, 1, 2, 3, 4, 5, 6, 7, 8, 15, 16, 17, 18, 19, 20, 9, 21,
+#      22, 10, 23, 14, 25, 26, 11, 12, 13, 24])
+# self = STDScorer(epitope, topology=topology, trajectory=trajectory,
+#                  rec_path=rec_path, qt_indices=qt_indices)

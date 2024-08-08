@@ -4,6 +4,9 @@ Control STDock workflow
 """
 from os.path import basename, dirname, join
 
+import matplotlib
+
+matplotlib.use('TKAgg')
 import numpy as np
 import numpy_indexed as npi
 import pandas as pd
@@ -27,7 +30,7 @@ prd.LOGGER.verbosity = 'none'
 # todo: Move plots and tables generation to another module
 # todo: Uncomment the plotting section in the main function
 # todo: Merge functions get_std0_data and get_std_af0_data
-
+# todo: Check labels passed in std-epitopes / std-regions are unique (collectively, individual after splitting by - [1])
 
 def std_func(x_data, std_max, k_sat):
     """
@@ -138,11 +141,11 @@ class STDRunner:
             self.std_data = self.get_std0_data()
             # self.plot_data()
 
-            # Do epitope mapping
-            self.mappings = self.get_epitope_mappings()
+            # Do epitope mapping (create files at STD directory)
+            self.epitope = self.get_epitope_mappings(integrate=True)
 
             # Launch Kd determination
-            lig_conc = self.mappings.keys()
+            lig_conc = self.epitope.keys()
             if (n_conc := len(lig_conc)) > 1:
                 print(f'Multiple ({n_conc}) ligand concentrations detected.'
                       f' Launching Kd determination.')
@@ -151,10 +154,10 @@ class STDRunner:
                 self.kd_data, self.kd = self.get_kds()
 
         # [WF] MAP FROM VALUES
-        if 'map-from-values' in self.config_args['template']:
+        if 'map-from-external' in self.config_args['template']:
             # Do epitope mapping
             self.epitope = self.config_args['std-epitopes']
-            self.mappings = self.epitope
+
             print('Epitope mapping completed')
 
         # [WF] THEN DOCK
@@ -165,17 +168,18 @@ class STDRunner:
                 self.config_args['ligand_pdb'], ligand_case=True)
             self.config_args['receptor_pdbqt'] = cmn.pdb2pdbqt(
                 self.config_args['receptor_pdb'])
-            self.docking_obj = self.launch_docking()
 
-            # Docking of small molecules (ONLY CHOICE FOR PUBLIC RELEASE)
+            # Docking of small molecules (THE ONLY CHOICE FOR PUBLIC RELEASE)
             if 'dock-small' in self.config_args['template']:
-                self.epitope = self.mappings
-                topology, trajectory, rec_path, epitope_raw = self.pre_stdscore_small()
+                self.docking_obj = self.launch_docking()
+                topology, trajectory, rec_path = self.pre_stdscore_small()
+                self.get_epitope_mappings()
+                epitope = STDEpitope(self.config_args['STD'])
                 qt_indices = self.reindex_pdb_qt()
-                epitope = STDEpitope(dirname(epitope_raw))
                 score_obj = STDScorer(epitope, topology=topology,
                                       trajectory=trajectory, rec_path=rec_path,
                                       qt_indices=qt_indices)
+
                 self.std_scores = score_obj.scores
                 self.docking_scores = self.parse_docking_scores()
 
@@ -468,7 +472,7 @@ class STDRunner:
             plt.savefig(out_name, bbox_inches='tight', dpi=300)
             plt.close()
 
-    def get_epitope_mappings(self):
+    def get_epitope_mappings(self, integrate=False):
         """
         Get the epitope mapping for each ligand concentration
 
@@ -476,27 +480,41 @@ class STDRunner:
             mappings: a dict of {label: normalized std} for every ligand
                       concentration
         """
-        data = self.std_data
-        mappings = {}
-        for lig_conc in data:
-            mappings.update({lig_conc: {}})
-            std0 = []
-            labels = []
-            max_val = 0
-            for label in data[lig_conc]:
-                labels.append(label)
-                val = data[lig_conc][label].std_0[0]
-                std0.append(val)
-                if val > max_val:
-                    max_val = val
-            norm = np.asarray(std0) / max_val
+        # Get epitope mapping after spectra integration
+        if integrate:
+            data = self.std_data
+            mappings = {}
+            for lig_conc in data:
+                mappings.update({lig_conc: {}})
+                std0 = []
+                labels = []
+                max_val = 0
+                for label in data[lig_conc]:
+                    labels.append(label)
+                    val = data[lig_conc][label].std_0[0]
+                    std0.append(val)
+                    if val > max_val:
+                        max_val = val
+                norm = np.asarray(std0) / max_val
 
-            out_name = join(self.config_args['STD'],
-                            f'EPITOPE-MAPPING_{lig_conc}.txt')
+                out_name = join(self.config_args['STD'],
+                                f'EPITOPE-MAPPING_{lig_conc}.txt')
+                with open(out_name, 'wt') as mapping:
+                    for i, label in enumerate(labels):
+                        mappings[lig_conc].update({label: norm[i]})
+                        mapping.write(f'{label:>16}: {norm[i]:.2f}\n')
+
+        # Get epitope mapping from external values specified in the config
+        else:
+            out_name = join(self.config_args['STD'], f'EPITOPE-MAPPING_0.0.txt')
+            labels = self.epitope.keys()
+            norm = np.asarray(list(self.epitope.values()))
+            mappings = {}
             with open(out_name, 'wt') as mapping:
                 for i, label in enumerate(labels):
-                    mappings[lig_conc].update({label: norm[i]})
+                    mappings.update({label: norm[i]})
                     mapping.write(f'{label:>16}: {norm[i]:.2f}\n')
+
         print('Epitope mapping completed')
         return mappings
 
@@ -511,7 +529,14 @@ class STDRunner:
         qt_path = self.config_args['ligand_pdbqt']
         pdb_parsed = prd.parsePDB(pdb_path)
         qt_parsed = cmn.Molecule(qt_path).parse()[0]
-        indices = npi.indices(pdb_parsed.getCoords(), qt_parsed.getCoords())
+        indices = npi.indices(pdb_parsed.getCoords(), qt_parsed.getCoords(), missing='mask')
+
+        pdb_coords = pdb_parsed.getCoords()
+        qt_coords = qt_parsed.getCoords()
+        for coord in qt_coords:
+            if coord not in pdb_coords:
+                print('Missing coordinates in pdb file')
+
         return indices
 
     def launch_docking(self):
@@ -551,13 +576,15 @@ class STDRunner:
         docking_scores = self.docking_scores
 
         score_table = pd.DataFrame()
-        for lig_conc in std_scores:
+        sorted_keys = sorted(std_scores.keys())
+        for lig_conc in sorted_keys:
             lig_scores = std_scores[lig_conc]
             if not lig_scores.size == len(docking_scores):
                 raise ValueError(
                     'Mismatch in number of docking_scores & std scores')
 
             score_table[f'std_score_{lig_conc}'] = lig_scores
+
         score_table['docking_score'] = docking_scores
         out_name = join(self.docking_obj.out_dir, 'scores_all.txt')
         with open(out_name, 'wt') as scores:
@@ -594,12 +621,12 @@ class STDRunner:
         prd.writePDB(rec_path, rec_parsed)
 
         # Get the epitope mapping path
-        epitope_path = join(std_dir, 'EPITOPE-MAPPING_0.5.txt')
-        with open(epitope_path, 'wt') as ep:
-            for key, value in self.epitope.items():
-                ep.write(f'{key} : {value}\n')
+        # epitope_path = join(std_dir, 'EPITOPE-MAPPING_0.5.txt')
+        # with open(epitope_path, 'wt') as ep:
+        #     for key, value in self.epitope.items():
+        #         ep.write(f'{key} : {value}\n')
 
-        return topo_path, traj_path, rec_path, epitope_path
+        return topo_path, traj_path, rec_path
 
     def parse_docking_scores(self):
         """
@@ -610,7 +637,7 @@ class STDRunner:
         """
         dock_out_dir = self.docking_obj.out_dir
         scores_path = next(
-            cmn.recursive_finder('scores_filtered.txt', dock_out_dir))
+            cmn.recursive_finder('scores.txt', dock_out_dir))
         parsed = pd.read_table(scores_path, sep='\s+', header=None).T.iloc[1]
         scores = np.asarray(parsed)
         return scores
@@ -666,12 +693,21 @@ import config as cfg
 # config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/hur/map-from-values-then-dock_hur.cfg'
 # config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/imaging/config_kd.cfg'
 # config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/reduced_dataset/config_rd.cfg'
-config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/imaging-docking/config_kd_docking.cfg'
+# config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/imaging-docking/config_kd_docking.cfg'
 
-params = cfg.allowed_parameters
-valid_templates = cfg.allowed_templates
-args = cfg.STDConfig(config_path, params, valid_templates).config_args
-self = STDRunner(args)
+
+# config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/hur/HuR_reproduction/M2_e/map-from-values-then-dock_hur.cfg'
+# config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/hur/HuR_reproduction/M3_e/map-from-values-then-dock_hur.cfg'
+# config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/hur/HuR_reproduction/M4_e/map-from-values-then-dock_hur.cfg'
+# config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/hur/HuR_reproduction/M6_e/map-from-values-then-dock_hur.cfg'
+# config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/hur/HuR_reproduction/M7_e/map-from-values-then-dock_hur.cfg'
+# config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/hur/HuR_reproduction/M11_e1/map-from-values-then-dock_hur.cfg'
+# config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/hur/HuR_reproduction/M12_e/map-from-values-then-dock_hur.cfg'
+
+# params = cfg.allowed_parameters
+# valid_templates = cfg.allowed_templates
+# args = cfg.STDConfig(config_path, params, valid_templates).config_args
+# self = STDRunner(args)
 # self.run()
 
 # =============================================================================

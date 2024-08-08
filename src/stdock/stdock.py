@@ -7,8 +7,8 @@ import stdock.runner as runner
 
 
 # todo: in mapdock-values, change the name of the section [docking-small] to [docking]
-# todo: Put prints in the code to inform the user about the progress of the program
 # todo: deprecate the support of filtered poses and scores in the program
+# todo: check that receptor and ligand both have hydrogens. Otherwise abort !
 
 def main():
     """ Main function of the program"""

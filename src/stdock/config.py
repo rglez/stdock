@@ -1,7 +1,6 @@
 # Created by roy.gonzalez-aleman at 13/11/2023
 import configparser
 import os
-import textwrap
 from collections import Counter
 from os.path import abspath, dirname, isabs, join, normpath
 
@@ -12,20 +11,22 @@ num_cores = os.cpu_count()
 
 #: Allowed section templates in the config file
 allowed_templates = {
+
+    # Trolls dataset
     'map-from-spectra':
         {'generals', 'std-regions', 'std-spectra'},
 
-    'map-from-values-then-dock-small':
-        {'generals', 'std-epitope', 'docking-small'},
-
+    # Imaging dataset
     'map-from-spectra-then-dock-small':
         {'generals', 'std-regions', 'std-spectra', 'docking-small'},
 
+    # HuR dataset
+    'map-from-external-then-dock-small':
+        {'generals', 'std-epitope', 'docking-small'},
+
+    # CIGB dataset
     'map-from-spectra-then-dock-pept':
         {'generals', 'std-regions', 'std-spectra', 'docking-pept'},
-
-    # 'dock-without-map':
-    #     {}
 }
 
 #: Allowed keys in the config file (dtypes & expected values)
@@ -34,32 +35,40 @@ allowed_parameters = {
     # General parameters
     'generals': {
         'output_dir': {'dtype': 'path', 'check_exist': False},
-        'protein_conc': {'dtype': float, 'min': 0.0, 'max': cmn.inf_float}},
+        'protein_conc': {'dtype': float, 'min': 0.0, 'max': cmn.inf_float},
+        'workflow': {'dtype': str,
+                     'values': {'map-from-spectra',
+                                'map-from-spectra-then-dock-small',
+                                'map-from-external-then-dock-small',
+                                'map-from-spectra-then-dock-pept'}}},
 
-    # STD-NMR integral regions parameters
+    # STD-NMR integral regions
     'std-regions': None,
 
-    # (On-res, off-res, spectra) tuples
+    # Spectra files
     'std-spectra': None,
 
-    # STD-NMR epitope mapping parameters
+    # STD-NMR epitope mapping
     'std-epitope': None,
 
-    # VINADocking-related parameters
+    # Docking-related parameters (small molecules)
     'docking-small': {
         'receptor_pdb': {'dtype': 'path', 'check_exist': True},
         'ligand_pdb': {'dtype': 'path', 'check_exist': True},
         'num_poses': {'dtype': int, 'min': 1, 'max': cmn.inf_int},
-        'rmsd_tolerance': {'dtype': float, 'min': 0.01, 'max': cmn.inf_float},
+        'rmsd_tolerance': {'dtype': float, 'min': 0.01,
+                           'max': cmn.inf_float},
         'exhaustiveness': {'dtype': int, 'min': 1, 'max': cmn.inf_int}},
 
+    # Docking-related parameters (peptides)
     'docking-pept': {
         'receptor_pdb': {'dtype': 'path', 'check_exist': True},
         'ligand_pdb': {'dtype': 'path', 'check_exist': True},
         'scoring_function': {'dtype': str,
                              'values': {'cpydock', 'dfire', 'fastdfire',
                                         'dfire2', 'dna', 'ddna',
-                                        'mj3h', 'pisa', 'sd', 'sipper', 'tobi',
+                                        'mj3h', 'pisa', 'sd', 'sipper',
+                                        'tobi',
                                         'vdw'}},
         'num_steps': {'dtype': int, 'min': 1, 'max': cmn.inf_int}
     }
@@ -67,6 +76,10 @@ allowed_parameters = {
 
 
 class Param:
+    """
+    Base class for parameter checking
+    """
+
     def __init__(self, key, value, *args, **kwargs):
         self.key = key
         self.value = value
@@ -74,10 +87,17 @@ class Param:
         self.kwargs = kwargs
 
     def check(self):
+        """
+        Check the parameter
+        """
         raise NotImplementedError()
 
 
 class NumericParam(Param):
+    """
+    Check numeric parameters
+    """
+
     def check(self):
         dtype = self.kwargs['dtype']
         minim = self.kwargs['min']
@@ -86,12 +106,20 @@ class NumericParam(Param):
 
 
 class PathParam(Param):
+    """
+    Check path
+    """
+
     def check(self):
         path = self.value
         cmn.check_path(path, check_exist=self.kwargs['check_exist'])
 
 
 class ChoiceParam(Param):
+    """
+    Check choices
+    """
+
     def check(self):
         choices = self.kwargs['values']
         if choices and (not (self.value in choices)):
@@ -101,10 +129,14 @@ class ChoiceParam(Param):
 
 
 class Config:
+    """
+    Base class for config file parsing
+    """
+
     def __init__(self, config_path, legal_params, legal_templates):
 
         # Parse class args
-        self.config_path = cmn.check_path(config_path, check_exist=True)
+        self.config_path = cmn.check_path(config_path)
         self.legal_params = legal_params
         self.legal_templates = legal_templates
 
@@ -121,10 +153,23 @@ class Config:
         self.config_args['template'] = self.template
 
     def detect_keyless_sections(self):
+        """
+        Detect sections without keys in the configuration file
+
+        Returns:
+            keyless_sections: a list with the sections without keys
+        """
         params = self.legal_params
-        return [x for x in params if params[x] is None]
+        keyless_sections = [x for x in params if params[x] is None]
+        return keyless_sections
 
     def read_config_file(self):
+        """
+        Read the configuration file
+
+        Returns:
+            config_obj: a ConfigParser object of the configuration file
+        """
         config_obj = configparser.ConfigParser(allow_no_value=True,
                                                inline_comment_prefixes='#')
         config_obj.optionxform = str
@@ -132,16 +177,55 @@ class Config:
         return config_obj
 
     def detect_template(self):
-        current_config = set(self.config_obj.sections())
-        for template_name, template in self.legal_templates.items():
-            if template == current_config:
-                return template_name
-        raise ValueError(
-            f'Declared sections in the configuration file do not '
-            f'correspond to any pre-defined template. Currently allowed '
-            f'templates are: {self.legal_templates}.')
+        """
+        Detect the template of the configuration file
+
+        Raises:
+            ValueError: if the workflow or sections are not valid
+
+        Returns:
+            workflow: the workflow specified in the configuration
+        """
+        # Check if the workflow is valid
+        try:
+            workflow = self.config_obj['generals']['workflow']
+        except KeyError:
+            raise KeyError(
+                'The configuration file must have a [generals] section with'
+                ' a "workflow" key specifying the workflow to run.')
+
+        legal_workflows = self.legal_templates.keys()
+        if workflow not in legal_workflows:
+            raise ValueError(
+                f'Workflow "{workflow}" is not a valid one. '
+                f'Currently allowed workflows are: {legal_workflows}')
+
+        # Check if the sections are valid
+        valid_sections = self.legal_templates[workflow]
+        current_sections = set(self.config_obj.sections())
+
+        # Check if the sections are valid for the workflow specified
+        diff1 = set.difference(valid_sections, current_sections)
+        if diff1:
+            raise ValueError(
+                f'The configuration file is not valid for the workflow'
+                f' "{workflow}". The following sections are missing: {diff1}')
+
+        diff2 = set.difference(current_sections, valid_sections)
+        if diff2:
+            raise ValueError(
+                f'The configuration file is not valid for the workflow'
+                f' "{workflow}". The following sections are unnecesary: {diff2}')
+
+        return workflow
 
     def check_missing_keys(self):
+        """
+        Check for missing keys in the configuration file
+
+        Raises:
+            KeyError: if a key is missing in the configuration file
+        """
         current_template = self.legal_templates[self.template].copy()
         current_params = self.legal_params
         [current_template.remove(x) for x in self.keyless_sections if
@@ -156,6 +240,12 @@ class Config:
                         f' file. Please specify its value.')
 
     def check_params(self):
+        """
+        Check the parameters in the configuration file
+
+        Returns:
+            config_args: a dict with the parsed and checked parameters
+        """
         config_args = dict()
 
         config_dir = self.config_dir
@@ -188,7 +278,7 @@ class Config:
         return config_args
 
     def parse_and_check_constraints(self):
-        """Check for constraints in the STDock config file
+        """Check for specific constraints in the STDock config file
         """
         raise NotImplementedError
 
@@ -201,10 +291,10 @@ class STDConfig(Config):
 
     def parse_and_check_constraints(self):
         config_sections = self.config_obj.sections()
-        # 1. Build dir hierarchy
-        self.build_dir_hierarchy()
 
-        # 2. Check [std-spectra] section
+        # 1. todo: Check [docking] section
+
+        # 2. Check [std-spectra] sectioan
         if 'std-spectra' in config_sections:
             self.config_args['std-spectra'] = self.parse_spectra()
 
@@ -216,11 +306,8 @@ class STDConfig(Config):
         if 'std-epitope' in config_sections:
             self.config_args['std-epitopes'] = self.parse_epitopes()
 
-        # 5. Get protein concentration in general section if specified
-        # prot_conc = self.config_obj['generals'].get('protein_conc', None)
-        # self.config_args['prot_conc'] = float(prot_conc) if prot_conc else None
-
-        # todo: Check [docking] section
+        # 1. Build dir hierarchy
+        self.build_dir_hierarchy()
 
     def build_dir_hierarchy(self):
         """
@@ -228,12 +315,14 @@ class STDConfig(Config):
         """
         # If output_dir exists, raise
         outdir = self.config_args['output_dir']
+
         try:
             os.makedirs(outdir)
         except FileExistsError:
             raise FileExistsError(
                 f'The output directory {outdir} already exists. Please, '
                 f'choose another one, or delete the existing one.')
+
         for dir_name in ['STD', 'DOCKING']:
             self.config_args[dir_name] = join(outdir, dir_name)
             os.makedirs(self.config_args[dir_name])
@@ -254,10 +343,10 @@ class STDConfig(Config):
         # Extract keys and values
         config = self.config_obj
         keys = list(config['std-spectra'].keys())
-        values_raw = [x.strip() for x in list(config['std-spectra'].values())]
+        spectra = [x.strip() for x in list(config['std-spectra'].values())]
 
         # Perform path validity checks for spectra files
-        values = [cmn.check_path(x) for x in values_raw]
+        spectra_paths = [cmn.check_path(x) for x in spectra]
 
         # Get types, times & concentrations in the [std-spectra] section
         types, times, concs = [], [], []
@@ -266,7 +355,7 @@ class STDConfig(Config):
             if len(splitted) != 3:
                 raise ValueError(
                     'Keys of the [std-spectra] section of the config file must'
-                    ' be labeled as [on, off or diff]_[ligand concentration]_[saturation time].'
+                    ' be labeled as [on, off or diff]_[ligand_concentration]_[saturation_time].'
                     ' For example: on_0.1_0.5, off_0.1_0.5, diff_0.1_0.5')
 
             types.append(splitted[0])
@@ -301,7 +390,7 @@ class STDConfig(Config):
         if set(conc_times) != {2}:
             raise ValueError(
                 'There must be two spectrum per each'
-                ' (concentration/saturation time) level')
+                ' (concentration/saturation_time) level')
 
         # Check times consistency
         if len(set(times)) < 2:
@@ -326,12 +415,8 @@ class STDConfig(Config):
             splitted = key.split('_')
             type_ = splitted[0]
             lig_conc, sat_time = map(float, splitted[2:0:-1])
-            spectra_dict[lig_conc][sat_time][type_] = values[i]
+            spectra_dict[lig_conc][sat_time][type_] = spectra_paths[i]
         return spectra_dict
-
-    def check_spectra(self):
-        # todo: check all relative to the spectra consistency
-        pass
 
     def parse_regions(self):
         """
@@ -340,15 +425,11 @@ class STDConfig(Config):
         Returns:
             regions_dict: a dict with regions limits to integrate
         """
-        error_regions = textwrap.fill(
-            '''
-            Integration regions in the config file must be specified as {x}_{y}_{z}
-            one-liners where x is an atomic label and y, z are the upper and lower
-            limits of the integration region respectively''', width=80)
 
         # Extract keys and values
         config = self.config_obj
-        keys = list(config['std-regions'].keys())
+        keys_raw = list(config['std-regions'].keys())
+        keys = [cmn.check_epitope_label(x) for x in keys_raw]
         values_raw = list(config['std-regions'].values())
 
         # Get all the integral regions organized as a dict
@@ -359,34 +440,57 @@ class STDConfig(Config):
                 regions_dict.update(
                     {i: {'label': key, 'upper': upper, 'lower': lower}})
             else:
-                raise ValueError(error_regions)
+                raise ValueError(
+                    f'Upper limit must be greater than the lower limit in the'
+                    f' {key} region.')
         return regions_dict
 
     def parse_epitopes(self):
+        """
+        Parse the [std-epitope] section
+
+        Returns:
+            epitope: a dict with the epitope values
+        """
         config = self.config_obj
-        keys = list(config['std-epitope'].keys())
+        keys_raw = list(config['std-epitope'].keys())
+        keys = [cmn.check_epitope_label(x) for x in keys_raw]
         values_raw = [float(x) for x in config['std-epitope'].values()]
         epitope = dict(zip(keys, values_raw))
         return epitope
 
+
 # %%===========================================================================
 # Debugging area
 # =============================================================================
-# Debugging 'map-from-spectra'
-# config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/imaging/config_kd.cfg'
-# params = allowed_parameters
-# templates = allowed_templates
-# self = STDConfig(config_path, params, templates)
-# self.config_args
-
-# Debugging 'map-from-spectra-then-dock'
-# config_path = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/troll8.cfg'
-# params = allowed_parameters
-# templates = allowed_templates
-# self = STDConfig(config_path, params, templates)
-
-# Debugging 'map-from-values-then-dock'
-# config_path = '/home/roy.gonzalez-aleman/RoyHub/stdock/tests/example/00-CASE_STUDY/HuR/M9/M9.cfg'
-# params = allowed_parameters
-# templates = allowed_templates
-# self = STDConfig(config_path, params, templates)
+# configs = {
+#     # 'map-from-spectra':
+#     #     '/home/gonzalezroy/RoyHub/stdock/tests/paper/trolls/config.cfg',
+#     # 'map-from-spectra-then-dock-small':
+#     #     '/home/gonzalezroy/RoyHub/stdock/tests/paper/imaging-docking/config_kd_docking.cfg',
+#     'map-from-spectra-then-dock-small':
+#         '/home/gonzalezroy/RoyHub/stdock/tests/paper/imaging-docking/config_kd_docking.cfg',
+# }
+#
+#
+# def check_workflow(workflow, configs):
+#     """
+#     Check a specific workflow
+#
+#     Args:
+#         workflow: stdock workflow
+#         configs: dict with the config files
+#
+#     Returns:
+#
+#     """
+#     params = allowed_parameters
+#     templates = allowed_templates
+#     config_path = configs[workflow]
+#     self = STDConfig(config_path, params, templates)
+#     args = self.config_args
+#     return args
+#
+#
+# workflow = 'map-from-spectra-then-dock-small'
+# args = check_workflow(workflow, configs)
