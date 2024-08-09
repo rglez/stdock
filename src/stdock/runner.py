@@ -139,7 +139,7 @@ class STDRunner:
 
             # Plot STD curves
             self.std_data = self.get_std0_data()
-            # self.plot_data()
+            self.plot_data()
 
             # Do epitope mapping (create files at STD directory)
             self.epitope = self.get_epitope_mappings(integrate=True)
@@ -401,11 +401,12 @@ class STDRunner:
         std_max = df.std_max[0]
         k_sat = df.k_sat[0]
         std0 = df.std_0[0]
-        new_x = np.linspace(df.x.min(), df.x.max())
+        new_x = np.linspace(df.tsat.min(), df.tsat.max())
 
-        plt.plot(df.x, df.y, lw=0, label="Raw data", marker='x', color='r',
+        plt.plot(df.tsat, df['std'], lw=0, label="Raw data", marker='x',
+                 color='r',
                  alpha=0.5)
-        plt.plot(df.x, df.y_fit, lw=0, label="Fitted data", marker='o',
+        plt.plot(df.tsat, df.std_fit, lw=0, label="Fitted data", marker='o',
                  color='navy')
         plt.plot(new_x, std_func(new_x, std_max, k_sat), lw=1, ls='--',
                  color='navy', alpha=0.5)
@@ -433,7 +434,8 @@ class STDRunner:
             for i, label in enumerate(data[lig_conc]):
                 line, shape, color = styles[i]
                 df = data[lig_conc][label]
-                plt.plot(df.x, df.y, lw=1, ls=line, marker=shape, color=color,
+                plt.plot(df.tsat, df['std'], lw=1, ls=line, marker=shape,
+                         color=color,
                          ms=5, label=label, alpha=0.75)
             plt.legend(loc='right', bbox_to_anchor=(1.2, 0.5), ncol=1,
                        fontsize='small')
@@ -457,12 +459,12 @@ class STDRunner:
                 line, shape, color = styles[i]
 
                 df = data[lig_conc][label]
-                plt.plot(df.x, df.y_fit, lw=0, label=label, marker=shape,
+                plt.plot(df.tsat, df.std_fit, lw=0, label=label, marker=shape,
                          color=color)
 
                 std_max = df.std_max[0]
                 k_sat = df.k_sat[0]
-                new_x = np.linspace(df.x.min(), df.x.max())
+                new_x = np.linspace(df.tsat.min(), df.tsat.max())
                 plt.plot(new_x, std_func(new_x, std_max, k_sat), lw=1, ls=line,
                          color=color, alpha=0.75)
             plt.legend(loc='right', bbox_to_anchor=(1.2, 0.5), ncol=1,
@@ -703,12 +705,12 @@ import config as cfg
 # config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/hur/HuR_reproduction/M7_e/map-from-values-then-dock_hur.cfg'
 # config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/hur/HuR_reproduction/M11_e1/map-from-values-then-dock_hur.cfg'
 # config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/hur/HuR_reproduction/M12_e/map-from-values-then-dock_hur.cfg'
-
-# params = cfg.allowed_parameters
-# valid_templates = cfg.allowed_templates
-# args = cfg.STDConfig(config_path, params, valid_templates).config_args
-# self = STDRunner(args)
-# self.run()
+config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/trolls/map-from-spectra-then-dock-small.cfg'
+params = cfg.allowed_parameters
+valid_templates = cfg.allowed_templates
+args = cfg.STDConfig(config_path, params, valid_templates).config_args
+self = STDRunner(args)
+self.run()
 
 # =============================================================================
 #
