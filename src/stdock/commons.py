@@ -11,7 +11,7 @@ from os.path import join, split
 
 import matplotlib as mpl
 
-mpl.use('TKAgg')
+mpl.use('agg')
 
 import mdtraj as md
 import numpy as np
