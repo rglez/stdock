@@ -6,7 +6,7 @@ from os.path import basename, dirname, join
 
 import matplotlib
 
-matplotlib.use('TKAgg')
+matplotlib.use('agg')
 import numpy as np
 import numpy_indexed as npi
 import pandas as pd
@@ -157,7 +157,7 @@ class STDRunner:
         if 'map-from-external' in self.config_args['template']:
             # Do epitope mapping
             self.epitope = self.config_args['std-epitopes']
-
+            self.get_epitope_mappings()
             print('Epitope mapping completed')
 
         # [WF] THEN DOCK
@@ -173,7 +173,7 @@ class STDRunner:
             if 'dock-small' in self.config_args['template']:
                 self.docking_obj = self.launch_docking()
                 topology, trajectory, rec_path = self.pre_stdscore_small()
-                self.get_epitope_mappings()
+
                 epitope = STDEpitope(self.config_args['STD'])
                 qt_indices = self.reindex_pdb_qt()
                 score_obj = STDScorer(epitope, topology=topology,
@@ -508,7 +508,8 @@ class STDRunner:
 
         # Get epitope mapping from external values specified in the config
         else:
-            out_name = join(self.config_args['STD'], f'EPITOPE-MAPPING_0.0.txt')
+            out_name = join(self.config_args['STD'],
+                            f'EPITOPE-MAPPING_0.0.txt')
             labels = self.epitope.keys()
             norm = np.asarray(list(self.epitope.values()))
             mappings = {}
@@ -531,7 +532,8 @@ class STDRunner:
         qt_path = self.config_args['ligand_pdbqt']
         pdb_parsed = prd.parsePDB(pdb_path)
         qt_parsed = cmn.Molecule(qt_path).parse()[0]
-        indices = npi.indices(pdb_parsed.getCoords(), qt_parsed.getCoords(), missing='mask')
+        indices = npi.indices(pdb_parsed.getCoords(), qt_parsed.getCoords(),
+                              missing='mask')
 
         pdb_coords = pdb_parsed.getCoords()
         qt_coords = qt_parsed.getCoords()
@@ -690,7 +692,6 @@ class STDRunner:
 # =============================================================================
 # Debugging Case studies
 # =============================================================================
-import config as cfg
 
 # config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/hur/map-from-values-then-dock_hur.cfg'
 # config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/imaging/config_kd.cfg'
@@ -705,12 +706,23 @@ import config as cfg
 # config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/hur/HuR_reproduction/M7_e/map-from-values-then-dock_hur.cfg'
 # config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/hur/HuR_reproduction/M11_e1/map-from-values-then-dock_hur.cfg'
 # config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/hur/HuR_reproduction/M12_e/map-from-values-then-dock_hur.cfg'
-config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/trolls/map-from-spectra-then-dock-small.cfg'
-params = cfg.allowed_parameters
-valid_templates = cfg.allowed_templates
-args = cfg.STDConfig(config_path, params, valid_templates).config_args
-self = STDRunner(args)
-self.run()
+# config_path = '/home/gonzalezroy/RoyHub/stdock/tests/paper/error/map-from-spectra-then-dock-small.cfg'
+
+configs = {
+    'map-from-spectra': '/home/gonzalezroy/RoyHub/stdock/tests/paper/trolls/map-from-spectra.cfg',
+    'map-from-spectra-then-dock-small': '/home/gonzalezroy/RoyHub/stdock/tests/paper/error/map-from-spectra-then-dock-small.cfg',
+    'map-from-values-then-dock': '/home/gonzalezroy/RoyHub/stdock/tests/paper/hur/HuR_reproduction/M1/map-from-values-then-dock_hur.cfg',
+    # 'map-from-spectra-then-dock-pept': 'map-from-spectra-then-dock-pept.cfg',
+}
+
+# config_path = configs['map-from-spectra-then-dock-small']
+# config_path = configs['map-from-spectra']
+# config_path = configs['map-from-values-then-dock']
+# params = cfg.allowed_parameters
+# valid_templates = cfg.allowed_templates
+# args = cfg.STDConfig(config_path, params, valid_templates).config_args
+# self = STDRunner(args)
+# self.run()
 
 # =============================================================================
 #
